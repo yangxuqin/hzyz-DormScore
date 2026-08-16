@@ -32,6 +32,18 @@ defineProps<{ label: string; value: string; unit?: string; hint?: string }>();
   color: var(--color-text);
   margin-top: 4px;
   line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 大屏 / 电视展示：KPI 数字放大，远处可读 */
+@media (min-width: 1280px) {
+  .stat-label {
+    font-size: 14px;
+  }
+
+  .stat-value {
+    font-size: 34px;
+  }
 }
 
 .stat-unit {

@@ -1,14 +1,14 @@
 <!-- 展示页（只读）：概览 + 今日明细 + 本月日历 + 趋势 + 个人分析 + 频次 + 纪律 -->
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, nextTick, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { EChartsOption } from 'echarts';
 import { apiGet, errorMessage } from '../api/client';
 import type {
-  CalendarDay,
   CalendarStats,
   DailyTrendPoint,
   DisciplineRecord,
+  EnrichedRecord,
   FrequencyStats,
   MonthlyTrendPoint,
   OverviewData,
@@ -217,19 +217,59 @@ const calendarLeading = computed(() => {
   return first ? Math.max(0, first.weekday - 1) : 0;
 });
 
-const dailyPointByDate = computed(() => new Map(dailyPoints.value.map((p) => [p.date, p])));
+// ---- 单日明细（日历点选）----
+const dayDetail = ref<EnrichedRecord | null>(null);
+const dayDetailLoading = ref(false);
+const dayDetailError = ref('');
 
-const selectedDayInfo = computed(() => {
-  const day: CalendarDay | undefined = calendar.value?.days.find(
-    (d) => d.date === selectedDay.value,
-  );
-  if (!day) return null;
-  const point = dailyPointByDate.value.get(day.date);
-  return { day, point: point ?? null };
+const selectedDayScore = computed(() => {
+  const day = calendar.value?.days.find((d) => d.date === selectedDay.value);
+  return day?.score ?? null;
 });
+
+const selectedDayLeave = computed(
+  () =>
+    dayDetail.value?.userStatus.filter((s) => s.status === 'LEAVE').map((s) => s.userName) ?? [],
+);
+
+async function loadDayDetail(date: string): Promise<void> {
+  dayDetailLoading.value = true;
+  dayDetailError.value = '';
+  try {
+    dayDetail.value = await apiGet<EnrichedRecord | null>('/stats/day', { date });
+  } catch (e) {
+    dayDetailError.value = errorMessage(e, '当日明细加载失败');
+  } finally {
+    dayDetailLoading.value = false;
+    // 手机端：明细加载完成后再次滚进视野，保证新内容可见
+    if (window.matchMedia('(max-width: 767px)').matches && selectedDay.value === date) {
+      await nextTick();
+      document
+        .querySelector('.cal-detail')
+        ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }
+}
 
 function isToday(date: string): boolean {
   return date === today;
+}
+
+/** 选择日历日期：拉取当日完整明细；手机端自动把明细面板滚进视野 */
+async function onSelectDay(date: string): Promise<void> {
+  selectedDay.value = date;
+  dayDetail.value = null;
+  dayDetailError.value = '';
+  const day = calendar.value?.days.find((d) => d.date === date);
+  if (day && day.score !== null) {
+    void loadDayDetail(date);
+  }
+  if (window.matchMedia('(max-width: 767px)').matches) {
+    await nextTick();
+    document
+      .querySelector('.cal-detail')
+      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
 }
 
 // ---- 个人分析 ----
@@ -561,9 +601,10 @@ onMounted(() => {
                     ? `${formatDateCn(day.date)} 无记录`
                     : `${formatDateCn(day.date)} 得分 ${day.score}`
                 "
-                @click="selectedDay = day.date"
+                @click="onSelectDay(day.date)"
               >
-                {{ Number(day.date.slice(-2)) }}
+                <span class="cal-day">{{ Number(day.date.slice(-2)) }}</span>
+                <span v-if="day.score !== null" class="cal-score">{{ day.score }}</span>
               </button>
             </div>
             <div class="calendar-legend">
@@ -573,24 +614,91 @@ onMounted(() => {
               <span><i class="dot heat-s3"></i>5-9 分</span>
               <span><i class="dot heat-s4"></i>0-4 分</span>
               <span><i class="dot heat-empty"></i>无记录</span>
+              <span class="cal-tip">点击日期查看当日得分与扣分</span>
             </div>
           </div>
-          <div v-if="selectedDayInfo" class="cal-detail">
-            <span class="cal-detail-date">
-              {{ formatDateCn(selectedDayInfo.day.date) }} {{ weekdayOf(selectedDayInfo.day.date) }}
-            </span>
-            <template v-if="selectedDayInfo.day.score !== null && selectedDayInfo.point">
-              <span
-                >得分 <b>{{ selectedDayInfo.day.score }}</b> / 20</span
-              >
-              <span>
-                扣分 {{ selectedDayInfo.point.totalDeduction }} 分（床位
-                {{ selectedDayInfo.point.bedDeduction }} · 公共
-                {{ selectedDayInfo.point.publicDeduction }} · 纪律
-                {{ selectedDayInfo.point.disciplineDeduction }}）
+          <div v-if="selectedDay" class="cal-detail">
+            <div class="cal-detail-head">
+              <span class="cal-detail-date">
+                {{ formatDateCn(selectedDay) }} {{ weekdayOf(selectedDay) }}
               </span>
+              <template v-if="selectedDayScore !== null">
+                <span class="cal-detail-score"
+                  >得分 <b>{{ selectedDayScore }}</b> / 20</span
+                >
+                <span v-if="dayDetail">
+                  扣分 <b>{{ dayDetail.totalDeduction }}</b> 分（床位
+                  <b>{{ dayDetail.bedDeduction }}</b> · 公共
+                  <b>{{ dayDetail.publicDeduction }}</b> · 纪律
+                  <b>{{ dayDetail.disciplineDeduction }}</b>）
+                </span>
+              </template>
+              <span v-else>无记录（非有效日，不计入统计）</span>
+            </div>
+
+            <span v-if="dayDetailLoading" class="cal-detail-loading">当日明细加载中…</span>
+            <div v-else-if="dayDetailError" class="cal-detail-error">
+              {{ dayDetailError }}
+              <button type="button" class="link" @click="selectedDay && loadDayDetail(selectedDay)">
+                重试
+              </button>
+            </div>
+            <template v-else-if="dayDetail">
+              <div class="cal-detail-meta">
+                <span>值日生：<b>{{ dayDetail.dutyUserName }}</b></span>
+                <span>
+                  请假：
+                  <template v-if="selectedDayLeave.length"
+                    ><b>{{ selectedDayLeave.join('、') }}</b></template
+                  >
+                  <template v-else>无</template>
+                </span>
+                <span v-if="dayDetail.talkCount > 0"
+                  >讲话 <b>{{ dayDetail.talkCount }}</b> 次</span
+                >
+              </div>
+              <div class="period-grid">
+                <div v-for="p in ['am', 'pm'] as const" :key="p" class="period-block">
+                  <div class="period-title">{{ p === 'am' ? '上午' : '下午' }}</div>
+                  <div class="chips">
+                    <span
+                      v-for="c in dayDetail.bedChecks.filter(
+                        (x) => x.period === (p === 'am' ? 'AM' : 'PM'),
+                      )"
+                      :key="`db-${p}-${c.bedId}-${c.item}`"
+                      class="chip chip-bed"
+                      >{{ c.bedName }}·{{ c.itemLabel }}</span
+                    >
+                    <span
+                      v-for="c in dayDetail.publicChecks.filter(
+                        (x) => x.period === (p === 'am' ? 'AM' : 'PM'),
+                      )"
+                      :key="`dp-${p}-${c.item}`"
+                      class="chip chip-public"
+                      >{{ c.itemLabel }}</span
+                    >
+                    <span
+                      v-if="(p === 'am' ? dayDetail.talkAm : dayDetail.talkPm) > 0"
+                      class="chip chip-talk"
+                      >讲话 {{ p === 'am' ? dayDetail.talkAm : dayDetail.talkPm }} 次</span
+                    >
+                    <span
+                      v-if="
+                        dayDetail.bedChecks.filter(
+                          (x) => x.period === (p === 'am' ? 'AM' : 'PM'),
+                        ).length === 0 &&
+                        dayDetail.publicChecks.filter(
+                          (x) => x.period === (p === 'am' ? 'AM' : 'PM'),
+                        ).length === 0 &&
+                        (p === 'am' ? dayDetail.talkAm : dayDetail.talkPm) === 0
+                      "
+                      class="chip chip-none"
+                      >无扣分项</span
+                    >
+                  </div>
+                </div>
+              </div>
             </template>
-            <span v-else>无记录（非有效日，不计入统计）</span>
           </div>
         </template>
       </section>
@@ -824,8 +932,10 @@ onMounted(() => {
   aspect-ratio: 1;
   min-height: 40px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 2px;
   border-radius: 8px;
   font-size: 13px;
   font-weight: 600;
@@ -833,7 +943,26 @@ onMounted(() => {
   color: var(--heat-text-light);
   transition:
     transform 0.1s ease,
-    border-color 0.1s ease;
+    border-color 0.1s ease,
+    box-shadow 0.15s ease;
+}
+
+.cal-day {
+  line-height: 1;
+}
+
+.cal-score {
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  opacity: 0.9;
+}
+
+/* 手机端单元格空间有限，只显示日期，分值点选后在明细面板查看 */
+@media (max-width: 767px) {
+  .cal-score {
+    display: none;
+  }
 }
 
 .cal-cell:hover {
@@ -873,7 +1002,8 @@ onMounted(() => {
 }
 
 .cal-cell.selected {
-  border-color: var(--color-text);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgb(30 64 175 / 0.25);
 }
 
 .calendar-legend {
@@ -892,6 +1022,12 @@ onMounted(() => {
   border-radius: 3px;
   margin-right: 5px;
   vertical-align: -1px;
+}
+
+.calendar-legend .cal-tip {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  opacity: 0.85;
 }
 
 .dot.heat-full {
@@ -921,15 +1057,27 @@ onMounted(() => {
 
 .cal-detail {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
+  flex-direction: column;
+  gap: 10px;
   margin-top: 12px;
-  padding: 10px 12px;
+  padding: 12px;
   background: var(--color-bg);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   font-size: 14px;
   color: var(--color-text-secondary);
+  animation: cal-detail-in 0.25s ease;
+}
+
+@keyframes cal-detail-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 .cal-detail b {
@@ -939,6 +1087,40 @@ onMounted(() => {
 .cal-detail-date {
   color: var(--color-text);
   font-weight: 600;
+}
+
+.cal-detail-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 18px;
+}
+
+.cal-detail-score {
+  color: var(--color-text);
+}
+
+.cal-detail-score b {
+  font-size: 22px;
+  color: var(--color-primary);
+}
+
+.cal-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+}
+
+.cal-detail-loading {
+  font-size: 13px;
+}
+
+.cal-detail-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-danger);
 }
 
 /* 个人分析值日 */
