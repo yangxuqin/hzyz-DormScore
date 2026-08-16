@@ -119,32 +119,54 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
     talkCount: number,       // 讲话总次数
     totalDeduction: number,  // 总扣分
     score: number,           // 今日得分（0-20）
+    // 今日明细（展示页"今日明细"卡片）
+    weekday: string,         // 如 "星期日"
+    dutyUserId: number, dutyUserName: string,
+    leaveUsers: { userId: number, name: string }[],
+    am: { bedChecks: {bedId, bedName, item, itemLabel}[], publicChecks: {item, itemLabel}[], talk: number },
+    pm: { 同上 },
   } | null,
   // 本周无有效日 → null
-  weekRate: { label: string /* 08/10-08/16 */, rate: number /* 88.75 */, days: number } | null,
+  weekRate: { label: string /* 08/10-08/16 */, rate: number /* 88.75 */, days: number, fullScoreDays: number } | null,
   // 本月无有效日 → null
-  monthRate: { label: string /* 2026-08 */, rate: number, days: number } | null,
+  monthRate: { label: string /* 2026-08 */, rate: number, days: number, fullScoreDays: number } | null,
 } }
 ```
 
 ### GET /api/stats/trend/daily
 
 ```ts
-{ ok: true, data: { points: [{ date: string, score: number, totalDeduction: number }] } }
+{ ok: true, data: { points: [{
+  date: string, score: number,
+  totalDeduction: number, bedDeduction: number,
+  publicDeduction: number, disciplineDeduction: number, talkCount: number,
+}] } }
 // 仅有效日，按日期升序
 ```
 
 ### GET /api/stats/trend/weekly
 
 ```ts
-{ ok: true, data: { points: [{ key: string /* 周一日期 */, label: string /* 08/10-08/16 */, rate: number }] } }
+{ ok: true, data: { points: [{ key: string /* 周一日期 */, label: string /* 08/10-08/16 */, rate: number, days: number }] } }
 // 仅包含有有效日的周，按时间升序
 ```
 
 ### GET /api/stats/trend/monthly
 
 ```ts
-{ ok: true, data: { points: [{ key: string /* 2026-08 */, label: string, rate: number }] } }
+{ ok: true, data: { points: [{ key: string /* 2026-08 */, label: string, rate: number, days: number }] } }
+```
+
+### GET /api/stats/calendar?month=YYYY-MM
+
+```ts
+// month 可省略 → 默认当前月；months 包含所有有记录的月份与当前月的并集（供切换器）
+{ ok: true, data: {
+  selectedMonth: string,          // 实际选中的月份 YYYY-MM
+  months: string[],               // 升序
+  days: [{ date: string, weekday: number /* 1=周一 … 7=周日 */, score: number | null }],
+  // score 为当日得分；无有效记录（含 REVOKED）为 null
+} }
 ```
 
 ### GET /api/stats/personal?month=YYYY-MM
@@ -154,7 +176,13 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 { ok: true, data: {
   selectedMonth: string | null,   // 实际选中的月份（无任何数据时为 null）
   months: string[],               // 所有有有效记录的月份（升序，供切换器）
-  users: [{ userId: number, name: string, deduction: number }], // 7 人，按 sort 排序
+  users: [{
+    userId: number, name: string,
+    deduction: number,        // 合计个人扣分
+    bedDeduction: number,     // 床位个人区域分摊
+    publicDeduction: number,  // 值日生公共区域扣分
+    dutyCount: number,        // 本月值日天数
+  }], // 7 人，按 sort 排序
 } }
 ```
 
