@@ -4,6 +4,9 @@
   "version": "0.1.0",
   "description": "宿舍分数可视化系统：每日卫生与纪律检查、扣分统计与可视化",
   "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "dev:worker": "pnpm --filter @dorm/worker dev",
     "dev:web": "pnpm --filter @dorm/web dev",
