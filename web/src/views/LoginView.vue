@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ApiError, apiPost } from '../api/client';
 import { useAuthStore } from '../stores/auth';
+import ThemeToggle from '../components/ThemeToggle.vue';
 import type { Role } from '../api/types';
 
 const router = useRouter();
@@ -53,6 +54,9 @@ async function submit(): Promise<void> {
 
 <template>
   <div class="login-page">
+    <div class="login-theme">
+      <ThemeToggle />
+    </div>
     <div class="login-card card">
       <div class="login-brand">宿舍分数系统</div>
       <p class="login-sub">宿舍卫生与纪律检查 · 分数可视化</p>
@@ -111,6 +115,17 @@ async function submit(): Promise<void> {
   background: linear-gradient(160deg, #2563eb 0%, #1e40af 100%);
 }
 
+[data-theme='dark'] .login-page {
+  background: linear-gradient(160deg, #0b1220 0%, #16213a 100%);
+}
+
+.login-theme {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 10;
+}
+
 .login-card {
   width: 100%;
   max-width: 400px;
@@ -151,7 +166,7 @@ async function submit(): Promise<void> {
 }
 
 .tab.active {
-  background: #fff;
+  background: var(--color-card);
   color: var(--color-primary);
   font-weight: 600;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.1);

@@ -36,6 +36,12 @@ export interface Config {
   users: User[];
 }
 
+export interface TodayDetailPeriod {
+  bedChecks: { bedId: number; bedName: string; item: BedItem; itemLabel: string }[];
+  publicChecks: { item: PublicItem; itemLabel: string }[];
+  talk: number;
+}
+
 export interface TodayOverview {
   date: string;
   bedDeduction: number;
@@ -44,12 +50,19 @@ export interface TodayOverview {
   talkCount: number;
   totalDeduction: number;
   score: number;
+  weekday: string;
+  dutyUserId: number;
+  dutyUserName: string;
+  leaveUsers: { userId: number; name: string }[];
+  am: TodayDetailPeriod;
+  pm: TodayDetailPeriod;
 }
 
 export interface PeriodRate {
   label: string;
   rate: number;
   days: number;
+  fullScoreDays: number;
 }
 
 export interface OverviewData {
@@ -62,24 +75,51 @@ export interface DailyTrendPoint {
   date: string;
   score: number;
   totalDeduction: number;
+  bedDeduction: number;
+  publicDeduction: number;
+  disciplineDeduction: number;
+  talkCount: number;
 }
 
 export interface WeeklyTrendPoint {
   key: string;
   label: string;
   rate: number;
+  days: number;
 }
 
 export interface MonthlyTrendPoint {
   key: string;
   label: string;
   rate: number;
+  days: number;
+}
+
+export interface PersonalUser {
+  userId: number;
+  name: string;
+  deduction: number;
+  bedDeduction: number;
+  publicDeduction: number;
+  dutyCount: number;
 }
 
 export interface PersonalStats {
   selectedMonth: string | null;
   months: string[];
-  users: { userId: number; name: string; deduction: number }[];
+  users: PersonalUser[];
+}
+
+export interface CalendarDay {
+  date: string;
+  weekday: number;
+  score: number | null;
+}
+
+export interface CalendarStats {
+  selectedMonth: string;
+  months: string[];
+  days: CalendarDay[];
 }
 
 export interface FrequencyStats {

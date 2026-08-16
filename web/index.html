@@ -5,6 +5,23 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#2563eb" />
     <title>宿舍分数系统</title>
+    <script>
+      // 首屏前应用主题，避免闪烁（与 stores/theme.ts 的规则保持一致）
+      (function () {
+        try {
+          var saved = localStorage.getItem('dorm.theme');
+          var theme =
+            saved === 'light' || saved === 'dark'
+              ? saved
+              : window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'dark'
+                : 'light';
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {
+          /* ignore */
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

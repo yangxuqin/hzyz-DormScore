@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRouter } from 'vue-router';
 import { useAuthStore } from '../../stores/auth';
+import ThemeToggle from '../../components/ThemeToggle.vue';
 
 const router = useRouter();
 const auth = useAuthStore();
@@ -23,6 +24,7 @@ async function logout(): Promise<void> {
         <RouterLink to="/admin/settings" exact-active-class="active">设置</RouterLink>
       </nav>
       <div class="sidebar-foot">
+        <ThemeToggle />
         <RouterLink to="/" class="link">查看展示页</RouterLink>
         <button class="btn btn-outline btn-block" @click="logout">退出登录</button>
       </div>
@@ -34,6 +36,7 @@ async function logout(): Promise<void> {
         <div class="brand">宿舍分数管理</div>
         <div class="topbar-actions">
           <RouterLink to="/" class="btn btn-ghost btn-sm">展示页</RouterLink>
+          <ThemeToggle />
           <button class="btn btn-outline btn-sm" @click="logout">退出登录</button>
         </div>
       </header>

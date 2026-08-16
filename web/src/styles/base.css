@@ -1,5 +1,6 @@
 /* 全局基础样式 —— 移动优先 */
 :root {
+  color-scheme: light;
   --color-primary: #2563eb;
   --color-primary-hover: #1d4ed8;
   --color-primary-soft: #dbeafe;
@@ -15,6 +16,25 @@
   --color-success: #16a34a;
   --color-success-soft: #dcfce7;
   --color-muted: #94a3b8;
+  /* 图表配色（EChart 组件从 CSS 变量读取） */
+  --chart-1: #2563eb;
+  --chart-2: #f59e0b;
+  --chart-3: #10b981;
+  --chart-4: #ef4444;
+  --chart-5: #8b5cf6;
+  --chart-6: #06b6d4;
+  --chart-7: #ec4899;
+  --chart-text: #334155;
+  --chart-axis: #cbd5e1;
+  /* 日历热力图配色：按得分 0-20 从差到好 */
+  --heat-4: #ef4444; /* 0-4 分 */
+  --heat-3: #fb923c; /* 5-9 分 */
+  --heat-2: #facc15; /* 10-14 分 */
+  --heat-1: #4ade80; /* 15-19 分 */
+  --heat-full: #16a34a; /* 20 分 */
+  --heat-empty: #e2e8f0; /* 无记录 */
+  --heat-text-dark: #0f172a;
+  --heat-text-light: #ffffff;
   --radius: 12px;
   --radius-sm: 8px;
   --shadow: 0 1px 3px rgb(15 23 42 / 0.08);
@@ -22,6 +42,45 @@
   --nav-height: 60px;
   --content-max: 1080px;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* 暗夜模式 */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #3b82f6;
+  --color-primary-soft: #1e3a5f;
+  --color-bg: #0b1220;
+  --color-card: #16213a;
+  --color-text: #e2e8f0;
+  --color-text-secondary: #94a3b8;
+  --color-border: #2c3c5c;
+  --color-danger: #f87171;
+  --color-danger-soft: #451a1a;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #45310f;
+  --color-success: #4ade80;
+  --color-success-soft: #123323;
+  --color-muted: #64748b;
+  --chart-1: #60a5fa;
+  --chart-2: #fbbf24;
+  --chart-3: #34d399;
+  --chart-4: #f87171;
+  --chart-5: #a78bfa;
+  --chart-6: #22d3ee;
+  --chart-7: #f472b6;
+  --chart-text: #cbd5e1;
+  --chart-axis: #475569;
+  --heat-4: #dc2626;
+  --heat-3: #ea580c;
+  --heat-2: #ca8a04;
+  --heat-1: #16a34a;
+  --heat-full: #22c55e;
+  --heat-empty: #27354f;
+  --heat-text-dark: #0f172a;
+  --heat-text-light: #f8fafc;
+  --shadow: 0 1px 3px rgb(0 0 0 / 0.4);
+  --shadow-lg: 0 8px 24px rgb(0 0 0 / 0.55);
 }
 
 * {
@@ -188,7 +247,7 @@ textarea {
   padding: 8px 12px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-card);
   font-size: 15px;
   outline: none;
   transition:
@@ -344,7 +403,7 @@ textarea {
 }
 
 .segmented button.active {
-  background: #fff;
+  background: var(--color-card);
   color: var(--color-primary);
   font-weight: 600;
   box-shadow: 0 1px 2px rgb(15 23 42 / 0.1);
