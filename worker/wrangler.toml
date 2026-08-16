@@ -13,5 +13,5 @@ run_worker_first = true
 [[d1_databases]]
 binding = "DB"
 database_name = "dorm-score-db"
-database_id = "REPLACE_WITH_REAL_DATABASE_ID"
+database_id = "ab5b5e94-8e21-47fd-9526-d6b2909f9b1e"
 migrations_dir = "migrations"
