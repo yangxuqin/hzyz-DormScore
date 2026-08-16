@@ -1,0 +1,22 @@
+{
+  "name": "hzyz-dorm-score",
+  "private": true,
+  "version": "0.1.0",
+  "description": "宿舍分数可视化系统：每日卫生与纪律检查、扣分统计与可视化",
+  "packageManager": "pnpm@11.3.0",
+  "scripts": {
+    "dev:worker": "pnpm --filter @dorm/worker dev",
+    "dev:web": "pnpm --filter @dorm/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "db:migrate:local": "pnpm --filter @dorm/worker db:migrate:local",
+    "db:migrate:remote": "pnpm --filter @dorm/worker db:migrate:remote",
+    "deploy": "pnpm --filter @dorm/worker deploy"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.6"
+  }
+}

@@ -1,0 +1,17 @@
+# 宿舍分数可视化系统 - Cloudflare Worker 配置
+# 上线前：执行 `wrangler d1 create dorm-score-db`，把返回的 database_id 填入下方
+name = "dorm-score"
+main = "src/index.ts"
+compatibility_date = "2026-08-01"
+
+[assets]
+directory = "../web/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+run_worker_first = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "dorm-score-db"
+database_id = "REPLACE_WITH_REAL_DATABASE_ID"
+migrations_dir = "migrations"

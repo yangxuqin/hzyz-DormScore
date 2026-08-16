@@ -1,0 +1,11 @@
+packages:
+  - worker
+  - web
+
+# 允许安装后执行构建脚本的依赖（esbuild 二进制、workerd 运行时）
+allowBuilds:
+  esbuild: true
+  workerd: true
+
+# 本项目自用小团队快速迭代，不启用新包 24 小时发布窗口限制
+minimumReleaseAge: 0
