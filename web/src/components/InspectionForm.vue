@@ -493,7 +493,7 @@ function submit(): void {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
   padding: 8px;
-  background: #fff;
+  background: var(--color-card);
 }
 
 .bed-group.checked {
@@ -521,7 +521,7 @@ function submit(): void {
   padding: 4px 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
-  background: #fff;
+  background: var(--color-card);
   cursor: pointer;
   user-select: none;
   font-size: 14px;
@@ -560,7 +560,7 @@ function submit(): void {
   justify-content: space-between;
   align-items: center;
   padding: 8px 12px;
-  background: #fff;
+  background: var(--color-card);
   border-radius: var(--radius-sm);
   font-size: 14px;
 }

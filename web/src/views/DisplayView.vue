@@ -457,6 +457,13 @@ onMounted(() => {
       <div class="topbar-actions">
         <span class="badge badge-primary">{{ roleLabel }}</span>
         <ThemeToggle />
+        <button
+          v-if="auth.role === 'ADMIN'"
+          class="btn btn-primary btn-sm"
+          @click="router.push('/admin')"
+        >
+          管理后台
+        </button>
         <button class="btn btn-outline btn-sm" @click="logout">退出登录</button>
       </div>
     </header>
