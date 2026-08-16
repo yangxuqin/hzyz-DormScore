@@ -16,31 +16,31 @@
 
 ### 1.2 错误码
 
-| code | 含义 |
-|---|---|
-| UNAUTHORIZED | 未登录或会话过期（前端收到后跳转登录页） |
-| FORBIDDEN | 会话权限不足（展示会话调用管理接口） |
-| CSRF_REJECTED | 跨源请求被拒绝 |
-| INVALID_BODY | 请求体格式错误 |
-| INVALID_PASSWORD | 登录密码错误 |
-| RATE_LIMITED | 登录尝试次数过多，已被锁定 |
-| NOT_INITIALIZED | 密码未初始化 |
-| NOT_FOUND | 资源不存在 / 接口不存在 |
-| INVALID_DATE / DATE_IN_FUTURE | 日期格式错误 / 未来日期 |
-| INVALID_DUTY_USER / DUTY_USER_ON_LEAVE | 值日生无效 / 请假人员当值日生 |
-| INVALID_USER_STATUS / INVALID_BED_CHECK / INVALID_PUBLIC_CHECK / INVALID_TALK_COUNT | 录入数据校验失败 |
-| DATE_CONFLICT | 修改日期时目标日期已有另一条记录 |
-| INVALID_ID / INVALID_RANGE / INVALID_MONTH | 参数错误 |
-| INVALID_CURRENT_PASSWORD / INVALID_PASSWORD | 改密码时当前密码错误 / 新密码不合规 |
-| INVALID_MEMBERS | 成员配置校验失败 |
-| INTERNAL | 服务器内部错误 |
+| code                                                                                | 含义                                     |
+| ----------------------------------------------------------------------------------- | ---------------------------------------- |
+| UNAUTHORIZED                                                                        | 未登录或会话过期（前端收到后跳转登录页） |
+| FORBIDDEN                                                                           | 会话权限不足（展示会话调用管理接口）     |
+| CSRF_REJECTED                                                                       | 跨源请求被拒绝                           |
+| INVALID_BODY                                                                        | 请求体格式错误                           |
+| INVALID_PASSWORD                                                                    | 登录密码错误                             |
+| RATE_LIMITED                                                                        | 登录尝试次数过多，已被锁定               |
+| NOT_INITIALIZED                                                                     | 密码未初始化                             |
+| NOT_FOUND                                                                           | 资源不存在 / 接口不存在                  |
+| INVALID_DATE / DATE_IN_FUTURE                                                       | 日期格式错误 / 未来日期                  |
+| INVALID_DUTY_USER / DUTY_USER_ON_LEAVE                                              | 值日生无效 / 请假人员当值日生            |
+| INVALID_USER_STATUS / INVALID_BED_CHECK / INVALID_PUBLIC_CHECK / INVALID_TALK_COUNT | 录入数据校验失败                         |
+| DATE_CONFLICT                                                                       | 修改日期时目标日期已有另一条记录         |
+| INVALID_ID / INVALID_RANGE / INVALID_MONTH                                          | 参数错误                                 |
+| INVALID_CURRENT_PASSWORD / INVALID_PASSWORD                                         | 改密码时当前密码错误 / 新密码不合规      |
+| INVALID_MEMBERS                                                                     | 成员配置校验失败                         |
+| INTERNAL                                                                            | 服务器内部错误                           |
 
 ### 1.3 枚举与常量
 
 ```ts
-type Period = 'AM' | 'PM';                    // 上午 / 下午
-type UserStatus = 'NORMAL' | 'LEAVE';         // 正常 / 请假
-type BedItem = 'BED' | 'FLOOR';               // 床面 / 床下地面
+type Period = 'AM' | 'PM'; // 上午 / 下午
+type UserStatus = 'NORMAL' | 'LEAVE'; // 正常 / 请假
+type BedItem = 'BED' | 'FLOOR'; // 床面 / 床下地面
 type PublicItem = 'TRASH' | 'BALCONY' | 'INDOOR' | 'TOILET' | 'SINK' | 'TABLE';
 // 垃圾桶 / 阳台地面 / 室内地面 / 厕所 / 洗衣槽 / 置物桌
 type InspectionStatus = 'ACTIVE' | 'REVOKED';
@@ -55,6 +55,7 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ## 2. 认证
 
 ### POST /api/auth/login
+
 ```ts
 // 请求
 { role: 'VIEWER' | 'ADMIN', password: string }
@@ -64,12 +65,14 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### POST /api/auth/logout
+
 ```ts
 // 200
 { ok: true, data: null }
 ```
 
 ### GET /api/auth/me
+
 ```ts
 // 200（未登录也返回 200，role 为 null）
 { ok: true, data: { role: 'VIEWER' | 'ADMIN' | null } }
@@ -80,6 +83,7 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ## 3. 基础配置
 
 ### GET /api/config（任意会话）
+
 ```ts
 { ok: true, data: {
   beds: [{ id: number, name: string, type: 'double' | 'single', sort: number }],
@@ -88,9 +92,12 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### PUT /api/config/members（仅 ADMIN）
+
 ```ts
 // 请求：7 人完整列表（id 不变，可改 name/bedId/position）
-{ users: [{ id, name, bedId, position }] }
+{
+  users: [{ id, name, bedId, position }];
+}
 // 校验：姓名 1-20 字；上下铺床恰好一上一下；单人床恰好一人
 // 成功 200：{ ok: true, data: <同 GET /api/config> }
 ```
@@ -100,6 +107,7 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ## 4. 展示接口（VIEWER 只读）
 
 ### GET /api/stats/overview
+
 ```ts
 { ok: true, data: {
   // 今日无有效记录 → null（前端显示 "-"）
@@ -120,23 +128,27 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### GET /api/stats/trend/daily
+
 ```ts
 { ok: true, data: { points: [{ date: string, score: number, totalDeduction: number }] } }
 // 仅有效日，按日期升序
 ```
 
 ### GET /api/stats/trend/weekly
+
 ```ts
 { ok: true, data: { points: [{ key: string /* 周一日期 */, label: string /* 08/10-08/16 */, rate: number }] } }
 // 仅包含有有效日的周，按时间升序
 ```
 
 ### GET /api/stats/trend/monthly
+
 ```ts
 { ok: true, data: { points: [{ key: string /* 2026-08 */, label: string, rate: number }] } }
 ```
 
 ### GET /api/stats/personal?month=YYYY-MM
+
 ```ts
 // month 可省略 → 默认最新有数据的月份
 { ok: true, data: {
@@ -147,6 +159,7 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### GET /api/stats/frequency?month=YYYY-MM
+
 ```ts
 { ok: true, data: {
   selectedMonth: string | null,
@@ -156,6 +169,7 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### GET /api/stats/discipline
+
 ```ts
 { ok: true, data: { records: [{ date: string, talkAm: number, talkPm: number, count: number }] } }
 // 仅违纪次数 > 0 的日期，按日期倒序
@@ -166,17 +180,20 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ## 5. 管理接口（全部要求 ADMIN）
 
 ### GET /api/admin/inspections?from=YYYY-MM-DD&to=YYYY-MM-DD
+
 ```ts
 // from/to 均可省略；记录按日期升序
 { ok: true, data: { records: [EnrichedRecord] } }
 ```
 
 ### GET /api/admin/inspections/by-date?date=YYYY-MM-DD
+
 ```ts
 { ok: true, data: { record: EnrichedRecord | null } }
 ```
 
 ### POST /api/admin/inspections —— 创建或更新（一天一条）
+
 ```ts
 // 请求
 {
@@ -196,13 +213,16 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### POST /api/admin/inspections/:id/revoke（可带 { reason }）
+
 ### POST /api/admin/inspections/:id/restore（可带 { reason }）
+
 ```ts
 { ok: true, data: { record: EnrichedRecord, action: 'updated' | 'unchanged' } }
 // unchanged = 重复操作（幂等，不重复记日志）
 ```
 
 ### GET /api/admin/audit-logs?limit=50&offset=0
+
 ```ts
 { ok: true, data: {
   total: number,
@@ -220,6 +240,7 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### PUT /api/admin/passwords
+
 ```ts
 // 请求（至少修改一个密码，新密码 4-64 位）
 { currentAdminPassword: string, viewerPassword?: string, adminPassword?: string }
@@ -228,6 +249,7 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```
 
 ### EnrichedRecord 完整结构
+
 ```ts
 {
   id: number,
