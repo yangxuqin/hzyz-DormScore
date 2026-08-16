@@ -6,7 +6,7 @@ import { computePersonalMonthly } from '../calc/personal';
 import { computeOverview } from '../calc/overview';
 import { monthCalendar } from '../calc/calendar';
 import { disciplineRecords } from '../calc/discipline';
-import { todayDetails } from '../present';
+import { enrichRecord, todayDetails } from '../present';
 import { dailyTrend, monthlyTrend, monthKeysWithRecords, weeklyTrend } from '../calc/trends';
 import { todayInShanghai } from '../date';
 import { requireRole } from '../middleware/auth';
@@ -48,6 +48,18 @@ viewer.get('/calendar', async (c) => {
   const months = [...new Set([...monthKeysWithRecords(records), current])].sort();
   const selected = month ?? current;
   return c.json(apiOk({ selectedMonth: selected, months, days: monthCalendar(records, selected) }));
+});
+
+// 单日明细：日历点选后展示当日完整信息（值日生、请假、上/下午检查项、讲话）
+viewer.get('/day', async (c) => {
+  const store = c.get('store');
+  const date = c.req.query('date');
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date))
+    return c.json(apiError('INVALID_DATE', '日期格式应为 YYYY-MM-DD'), 400);
+  const records = await store.listInspections();
+  const record = records.find((r) => r.status === 'ACTIVE' && r.date === date);
+  if (!record) return c.json(apiOk(null));
+  return c.json(apiOk(enrichRecord(record, await store.getConfig())));
 });
 
 viewer.get('/trend/daily', async (c) => {

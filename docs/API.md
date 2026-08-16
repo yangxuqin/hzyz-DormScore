@@ -169,6 +169,17 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 } }
 ```
 
+### GET /api/stats/day?date=YYYY-MM-DD
+
+```ts
+// 日历点选后的单日完整明细；date 必填
+{ ok: true, data: EnrichedRecord | null }
+// 有有效记录 → 同 /api/admin/inspections 的 EnrichedRecord（值日生、请假、
+// 上午/下午床位与公共检查项、讲话次数、各项扣分与得分）
+// 无有效记录（含 REVOKED）→ null
+// date 格式非法 → 400 INVALID_DATE
+```
+
 ### GET /api/stats/personal?month=YYYY-MM
 
 ```ts

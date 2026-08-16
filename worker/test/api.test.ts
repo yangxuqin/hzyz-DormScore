@@ -255,6 +255,45 @@ describe('录入 / 更新 / 历史', () => {
     expect(calendarData.days.some((d) => d.score === null)).toBe(true);
     expect(calendarData.months).toContain(monthKeyOf(today));
 
+    // 单日明细：今天有值日生、扣分与上/下午检查项
+    const dayDetail = await app.request(
+      '/api/stats/day?date=' + today,
+      { headers: { cookie: viewerCookie } },
+      env,
+    );
+    const dayData = (
+      (await dayDetail.json()) as {
+        data: {
+          score: number;
+          dutyUserName: string;
+          totalDeduction: number;
+          bedChecks: unknown[];
+          publicChecks: unknown[];
+          userStatus: unknown[];
+        } | null;
+      }
+    ).data;
+    expect(dayData?.score).toBe(9);
+    expect(dayData?.totalDeduction).toBe(11);
+    expect(dayData?.dutyUserName).toBeTruthy();
+    expect(dayData?.bedChecks.length).toBeGreaterThan(0);
+    expect(dayData?.publicChecks.length).toBeGreaterThan(0);
+    expect(dayData?.userStatus.length).toBe(7);
+
+    // 无记录日期返回 null；格式非法返回 400
+    const noDay = await app.request(
+      '/api/stats/day?date=2099-01-01',
+      { headers: { cookie: viewerCookie } },
+      env,
+    );
+    expect(((await noDay.json()) as { data: unknown }).data).toBeNull();
+    const badDate = await app.request(
+      '/api/stats/day?date=not-a-date',
+      { headers: { cookie: viewerCookie } },
+      env,
+    );
+    expect(badDate.status).toBe(400);
+
     // 纪律：只显示今天 1 次
     const discipline = await app.request(
       '/api/stats/discipline',
