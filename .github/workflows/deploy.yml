@@ -1,0 +1,62 @@
+# 推送到 main：测试 + 构建 + 部署到 Cloudflare Workers（含 D1 迁移）
+name: Test & Deploy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    name: 测试与构建
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+      - name: 后端单元/集成测试
+        run: pnpm -C worker test
+      - name: 后端类型检查
+        run: pnpm -C worker typecheck
+      - name: 前端类型检查
+        run: pnpm -C web typecheck
+      - name: 前端构建
+        run: pnpm -C web build
+      - name: 格式检查
+        run: pnpm exec prettier --check .
+
+  deploy:
+    name: 部署到 Cloudflare Workers
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.3.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: 安装依赖
+        run: pnpm install --frozen-lockfile
+      - name: 构建前端静态资源
+        run: pnpm -C web build
+      - name: 执行远程 D1 迁移
+        run: pnpm -C worker exec wrangler d1 migrations apply dorm-score-db --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: 部署 Worker
+        run: pnpm -C worker exec wrangler deploy
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
