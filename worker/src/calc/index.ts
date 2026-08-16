@@ -4,3 +4,4 @@ export * from './frequency';
 export * from './trends';
 export * from './overview';
 export * from './discipline';
+export * from './calendar';

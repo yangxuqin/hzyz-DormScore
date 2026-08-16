@@ -17,16 +17,22 @@ export interface DailyPoint {
   date: string;
   score: number;
   totalDeduction: number;
+  bedDeduction: number;
+  publicDeduction: number;
+  disciplineDeduction: number;
+  talkCount: number;
 }
 export interface WeeklyPoint {
   key: string; // 周一日期
   label: string; // 08/10-08/16
   rate: number;
+  days: number; // 本周有效天数
 }
 export interface MonthlyPoint {
   key: string; // YYYY-MM
   label: string;
   rate: number;
+  days: number; // 本月有效天数
 }
 
 export function dailyTrend(records: InspectionRecord[]): DailyPoint[] {
@@ -35,7 +41,15 @@ export function dailyTrend(records: InspectionRecord[]): DailyPoint[] {
     .sort((a, b) => a.date.localeCompare(b.date))
     .map((r) => {
       const d = computeDaily(r);
-      return { date: r.date, score: d.score, totalDeduction: d.totalDeduction };
+      return {
+        date: r.date,
+        score: d.score,
+        totalDeduction: d.totalDeduction,
+        bedDeduction: d.bedDeduction,
+        publicDeduction: d.publicDeduction,
+        disciplineDeduction: d.disciplineDeduction,
+        talkCount: d.talkCount,
+      };
     });
 }
 
@@ -51,7 +65,8 @@ export function weeklyTrend(records: InspectionRecord[]): WeeklyPoint[] {
   const points: WeeklyPoint[] = [];
   for (const [monday, recs] of groups) {
     const rate = rateOf(recs.map((r) => computeDaily(r).score));
-    if (rate !== null) points.push({ key: monday, label: weekLabel(monday), rate });
+    if (rate !== null)
+      points.push({ key: monday, label: weekLabel(monday), rate, days: recs.length });
   }
   return points.sort((a, b) => a.key.localeCompare(b.key));
 }
@@ -68,7 +83,7 @@ export function monthlyTrend(records: InspectionRecord[]): MonthlyPoint[] {
   const points: MonthlyPoint[] = [];
   for (const [m, recs] of groups) {
     const rate = rateOf(recs.map((r) => computeDaily(r).score));
-    if (rate !== null) points.push({ key: m, label: m, rate });
+    if (rate !== null) points.push({ key: m, label: m, rate, days: recs.length });
   }
   return points.sort((a, b) => a.key.localeCompare(b.key));
 }

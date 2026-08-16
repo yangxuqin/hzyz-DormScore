@@ -26,6 +26,36 @@ export function normalizeRecord(r: InspectionRecord) {
   };
 }
 
+/** 展示页“今日明细”所需信息 */
+export function todayDetails(record: InspectionRecord, config: AppConfig) {
+  const userById = new Map(config.users.map((u) => [u.id, u]));
+  const bedById = new Map(config.beds.map((b) => [b.id, b]));
+  const period = (p: 'AM' | 'PM') => ({
+    bedChecks: record.bedChecks
+      .filter((c) => c.period === p)
+      .map((c) => ({
+        bedId: c.bedId,
+        bedName: bedById.get(c.bedId)?.name ?? '',
+        item: c.item,
+        itemLabel: BED_ITEM_LABELS[c.item],
+      })),
+    publicChecks: record.publicChecks
+      .filter((c) => c.period === p)
+      .map((c) => ({ item: c.item, itemLabel: PUBLIC_ITEM_LABELS[c.item] })),
+    talk: p === 'AM' ? record.talkAm : record.talkPm,
+  });
+  return {
+    weekday: weekdayName(record.date),
+    dutyUserId: record.dutyUserId,
+    dutyUserName: userById.get(record.dutyUserId)?.name ?? '',
+    leaveUsers: record.userStatus
+      .filter((s) => s.status === 'LEAVE')
+      .map((s) => ({ userId: s.userId, name: userById.get(s.userId)?.name ?? '' })),
+    am: period('AM'),
+    pm: period('PM'),
+  };
+}
+
 /** 面向前端的完整记录形态（含姓名、标签与计算结果） */
 export function enrichRecord(record: InspectionRecord, config: AppConfig) {
   const userById = new Map(config.users.map((u) => [u.id, u]));

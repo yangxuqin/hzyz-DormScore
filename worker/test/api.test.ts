@@ -195,7 +195,18 @@ describe('录入 / 更新 / 历史', () => {
       env,
     );
     const personalData = (
-      (await personal.json()) as { data: { users: { userId: number; deduction: number }[] } }
+      (await personal.json()) as {
+        data: {
+          users: {
+            userId: number;
+            name: string;
+            deduction: number;
+            bedDeduction: number;
+            publicDeduction: number;
+            dutyCount: number;
+          }[];
+        };
+      }
     ).data;
     const byId = new Map(personalData.users.map((u) => [u.userId, u.deduction]));
     expect(byId.get(1)).toBe(2);
@@ -217,6 +228,32 @@ describe('录入 / 更新 / 历史', () => {
     expect(freqByKey.get('TRASH')).toBe(1);
     expect(freqByKey.get('TOILET')).toBe(1);
     expect(freqByKey.get('TABLE')).toBe(1);
+
+    // 个人：新增构成字段（床位/公共/值日次数）
+    const u3 = personalData.users.find((u) => u.userId === 3)!;
+    expect(u3).toEqual({
+      userId: 3,
+      name: 'User3',
+      deduction: 4,
+      bedDeduction: 1,
+      publicDeduction: 3,
+      dutyCount: 1,
+    });
+
+    // 日历：今天得分 9，无记录的日期为 null
+    const calendar = await app.request(
+      '/api/stats/calendar?month=' + monthKeyOf(today),
+      { headers: { cookie: viewerCookie } },
+      env,
+    );
+    const calendarData = (
+      (await calendar.json()) as {
+        data: { days: { date: string; score: number | null }[]; months: string[] };
+      }
+    ).data;
+    expect(calendarData.days.find((d) => d.date === today)?.score).toBe(9);
+    expect(calendarData.days.some((d) => d.score === null)).toBe(true);
+    expect(calendarData.months).toContain(monthKeyOf(today));
 
     // 纪律：只显示今天 1 次
     const discipline = await app.request(

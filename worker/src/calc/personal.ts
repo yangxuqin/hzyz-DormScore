@@ -48,10 +48,17 @@ export function computePersonalShare(
 export interface PersonalMonthlyItem {
   userId: number;
   name: string;
+  /** 合计个人扣分 */
   deduction: number;
+  /** 床位个人区域分摊 */
+  bedDeduction: number;
+  /** 值日生公共区域扣分 */
+  publicDeduction: number;
+  /** 本月值日天数 */
+  dutyCount: number;
 }
 
-/** 某月 7 人累计个人扣分；month 缺省时取最新有数据的月份 */
+/** 某月 7 人累计个人扣分（含构成与值日次数）；month 缺省时取最新有数据的月份 */
 export function computePersonalMonthly(
   records: InspectionRecord[],
   config: AppConfig,
@@ -59,22 +66,34 @@ export function computePersonalMonthly(
   months: string[],
 ): { selectedMonth: string | null; months: string[]; users: PersonalMonthlyItem[] } {
   const selected = month && months.includes(month) ? month : (months[months.length - 1] ?? null);
-  const total = new Map<number, number>();
+  const bedTotal = new Map<number, number>();
+  const publicTotal = new Map<number, number>();
+  const dutyCount = new Map<number, number>();
   if (selected) {
     for (const r of records) {
       if (r.status !== 'ACTIVE' || r.date.slice(0, 7) !== selected) continue;
-      for (const [id, pts] of computePersonalShare(r, config))
-        total.set(id, (total.get(id) ?? 0) + pts);
+      dutyCount.set(r.dutyUserId, (dutyCount.get(r.dutyUserId) ?? 0) + 1);
+      for (const [id, pts] of computeBedShare(r, config))
+        bedTotal.set(id, (bedTotal.get(id) ?? 0) + pts);
+      for (const [id, pts] of computePublicShare(r))
+        publicTotal.set(id, (publicTotal.get(id) ?? 0) + pts);
     }
   }
   const round2 = (n: number) => Math.round(n * 100) / 100;
   return {
     selectedMonth: selected,
     months,
-    users: config.users.map((u) => ({
-      userId: u.id,
-      name: u.name,
-      deduction: round2(total.get(u.id) ?? 0),
-    })),
+    users: config.users.map((u) => {
+      const bed = round2(bedTotal.get(u.id) ?? 0);
+      const pub = round2(publicTotal.get(u.id) ?? 0);
+      return {
+        userId: u.id,
+        name: u.name,
+        bedDeduction: bed,
+        publicDeduction: pub,
+        deduction: round2(bed + pub),
+        dutyCount: dutyCount.get(u.id) ?? 0,
+      };
+    }),
   };
 }

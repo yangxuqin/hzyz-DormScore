@@ -4,6 +4,7 @@ import { computeDaily } from '../src/calc/daily';
 import { computePersonalMonthly, computePersonalShare } from '../src/calc/personal';
 import { computeFrequency } from '../src/calc/frequency';
 import { computeOverview } from '../src/calc/overview';
+import { monthCalendar } from '../src/calc/calendar';
 import { disciplineRecords } from '../src/calc/discipline';
 import {
   dailyTrend,
@@ -238,6 +239,7 @@ describe('周期统计', () => {
     expect(points[0]!.key).toBe('2026-08-10');
     expect(points[0]!.label).toBe('08/10-08/16');
     expect(points[0]!.rate).toBe(88.75);
+    expect(points[0]!.days).toBe(4);
   });
 
   it('撤回（REVOKED）记录不参与统计；恢复后重新参与', () => {
@@ -284,8 +286,24 @@ describe('周期统计', () => {
       makeRecord({ date: '2026-08-04', status: 'REVOKED' }),
     ];
     expect(dailyTrend(records)).toEqual([
-      { date: '2026-08-03', score: 20, totalDeduction: 0 },
-      { date: '2026-08-05', score: 18, totalDeduction: 2 },
+      {
+        date: '2026-08-03',
+        score: 20,
+        totalDeduction: 0,
+        bedDeduction: 0,
+        publicDeduction: 0,
+        disciplineDeduction: 0,
+        talkCount: 0,
+      },
+      {
+        date: '2026-08-05',
+        score: 18,
+        totalDeduction: 2,
+        bedDeduction: 2,
+        publicDeduction: 0,
+        disciplineDeduction: 0,
+        talkCount: 0,
+      },
     ]);
   });
 });
@@ -328,8 +346,9 @@ describe('computeOverview 概览', () => {
       ],
       today,
     );
-    expect(o.weekRate).toEqual({ label: '08/10-08/16', rate: 95, days: 2 });
+    expect(o.weekRate).toEqual({ label: '08/10-08/16', rate: 95, days: 2, fullScoreDays: 1 });
     expect(o.monthRate?.days).toBe(2);
+    expect(o.monthRate?.fullScoreDays).toBe(1);
     const empty = computeOverview([], today);
     expect(empty.weekRate).toBeNull();
     expect(empty.monthRate).toBeNull();
@@ -354,6 +373,62 @@ describe('computePersonalMonthly 个人月累计', () => {
     const r = computePersonalMonthly([], CONFIG, null, []);
     expect(r.selectedMonth).toBeNull();
     expect(r.users.every((u) => u.deduction === 0)).toBe(true);
+  });
+
+  it('扣分构成（床位/公共）与值日次数分开统计', () => {
+    const records = [
+      // 8/01：1床床面（U1/U2 各 1）+ 公共 2 项归值日生 U3
+      makeRecord({
+        date: '2026-08-01',
+        dutyUserId: 3,
+        bedChecks: [{ period: 'AM', bedId: 1, item: 'BED' }],
+        publicChecks: [
+          { period: 'AM', item: 'TRASH' },
+          { period: 'AM', item: 'TOILET' },
+        ],
+      }),
+      // 8/02：值日生 U5，无扣分
+      makeRecord({ date: '2026-08-02', dutyUserId: 5 }),
+    ];
+    const months = monthKeysWithRecords(records);
+    const r = computePersonalMonthly(records, CONFIG, '2026-08', months);
+    const byId = new Map(r.users.map((u) => [u.userId, u]));
+    expect(byId.get(1)!).toEqual({
+      userId: 1,
+      name: 'User1',
+      deduction: 1,
+      bedDeduction: 1,
+      publicDeduction: 0,
+      dutyCount: 0,
+    });
+    expect(byId.get(3)!.publicDeduction).toBe(2);
+    expect(byId.get(3)!.deduction).toBe(2);
+    expect(byId.get(3)!.dutyCount).toBe(1);
+    expect(byId.get(5)!.deduction).toBe(0);
+    expect(byId.get(5)!.dutyCount).toBe(1);
+  });
+});
+
+describe('monthCalendar 月份历', () => {
+  it('2026-08 共 31 天，首日 8/1 是星期六（weekday=6），无记录为 null', () => {
+    const records = [
+      makeRecord({ date: '2026-08-16', bedChecks: [{ period: 'AM', bedId: 1, item: 'BED' }] }),
+    ];
+    const days = monthCalendar(records, '2026-08');
+    expect(days).toHaveLength(31);
+    expect(days[0]!).toEqual({ date: '2026-08-01', weekday: 6, score: null });
+    expect(days[15]!).toEqual({ date: '2026-08-16', weekday: 7, score: 18 });
+    expect(days[30]!.date).toBe('2026-08-31');
+  });
+
+  it('REVOKED 记录视为无记录', () => {
+    const days = monthCalendar([makeRecord({ date: '2026-08-05', status: 'REVOKED' })], '2026-08');
+    expect(days[4]!.score).toBeNull();
+  });
+
+  it('跨年月份（2026-12 31 天 / 2026-02 28 天）', () => {
+    expect(monthCalendar([], '2026-12')).toHaveLength(31);
+    expect(monthCalendar([], '2026-02')).toHaveLength(28);
   });
 });
 

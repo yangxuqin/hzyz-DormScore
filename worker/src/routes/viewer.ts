@@ -4,7 +4,9 @@ import type { Context } from 'hono';
 import { computeFrequency } from '../calc/frequency';
 import { computePersonalMonthly } from '../calc/personal';
 import { computeOverview } from '../calc/overview';
+import { monthCalendar } from '../calc/calendar';
 import { disciplineRecords } from '../calc/discipline';
+import { todayDetails } from '../present';
 import { dailyTrend, monthlyTrend, monthKeysWithRecords, weeklyTrend } from '../calc/trends';
 import { todayInShanghai } from '../date';
 import { requireRole } from '../middleware/auth';
@@ -25,7 +27,27 @@ function parseMonthParam(c: Context<AppEnv>): string | null | { error: string } 
 viewer.get('/overview', async (c) => {
   const store = c.get('store');
   const records = await store.listInspections();
-  return c.json(apiOk(computeOverview(records, todayInShanghai())));
+  const today = todayInShanghai();
+  const overview = computeOverview(records, today);
+  if (overview.today) {
+    // 附加今日明细：值日生、请假人员、上/下午检查项（展示页“今日明细”）
+    const record = records.find((r) => r.status === 'ACTIVE' && r.date === today)!;
+    overview.today = { ...overview.today, ...todayDetails(record, await store.getConfig()) };
+  }
+  return c.json(apiOk(overview));
+});
+
+// 月份历（日历热力图）：默认当前月；每格返回当天得分，无有效记录为 null
+viewer.get('/calendar', async (c) => {
+  const store = c.get('store');
+  const month = parseMonthParam(c);
+  if (month !== null && typeof month === 'object')
+    return c.json(apiError('INVALID_MONTH', month.error), 400);
+  const records = await store.listInspections();
+  const current = todayInShanghai().slice(0, 7);
+  const months = [...new Set([...monthKeysWithRecords(records), current])].sort();
+  const selected = month ?? current;
+  return c.json(apiOk({ selectedMonth: selected, months, days: monthCalendar(records, selected) }));
 });
 
 viewer.get('/trend/daily', async (c) => {
