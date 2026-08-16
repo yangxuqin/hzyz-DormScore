@@ -266,9 +266,7 @@ async function onSelectDay(date: string): Promise<void> {
   }
   if (window.matchMedia('(max-width: 767px)').matches) {
     await nextTick();
-    document
-      .querySelector('.cal-detail')
-      ?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    document.querySelector('.cal-detail')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
@@ -630,7 +628,8 @@ onMounted(() => {
                   扣分 <b>{{ dayDetail.totalDeduction }}</b> 分（床位
                   <b>{{ dayDetail.bedDeduction }}</b> · 公共
                   <b>{{ dayDetail.publicDeduction }}</b> · 纪律
-                  <b>{{ dayDetail.disciplineDeduction }}</b>）
+                  <b>{{ dayDetail.disciplineDeduction }}</b
+                  >）
                 </span>
               </template>
               <span v-else>无记录（非有效日，不计入统计）</span>
@@ -645,7 +644,9 @@ onMounted(() => {
             </div>
             <template v-else-if="dayDetail">
               <div class="cal-detail-meta">
-                <span>值日生：<b>{{ dayDetail.dutyUserName }}</b></span>
+                <span
+                  >值日生：<b>{{ dayDetail.dutyUserName }}</b></span
+                >
                 <span>
                   请假：
                   <template v-if="selectedDayLeave.length"
@@ -684,9 +685,8 @@ onMounted(() => {
                     >
                     <span
                       v-if="
-                        dayDetail.bedChecks.filter(
-                          (x) => x.period === (p === 'am' ? 'AM' : 'PM'),
-                        ).length === 0 &&
+                        dayDetail.bedChecks.filter((x) => x.period === (p === 'am' ? 'AM' : 'PM'))
+                          .length === 0 &&
                         dayDetail.publicChecks.filter(
                           (x) => x.period === (p === 'am' ? 'AM' : 'PM'),
                         ).length === 0 &&
