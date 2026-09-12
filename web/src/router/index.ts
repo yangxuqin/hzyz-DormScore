@@ -1,13 +1,7 @@
+// 路由表：登录页公开；展示页需任意会话；管理页需 ADMIN
 import { createRouter, createWebHistory } from 'vue-router';
-import type { Role } from '../api/types';
+import type { Role } from '@dorm/contracts';
 import { useAuthStore } from '../stores/auth';
-import LoginView from '../views/LoginView.vue';
-import DisplayView from '../views/DisplayView.vue';
-import AdminLayout from '../views/admin/AdminLayout.vue';
-import EntryView from '../views/admin/EntryView.vue';
-import HistoryView from '../views/admin/HistoryView.vue';
-import LogsView from '../views/admin/LogsView.vue';
-import SettingsView from '../views/admin/SettingsView.vue';
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -19,41 +13,65 @@ declare module 'vue-router' {
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: '/login', name: 'login', component: LoginView, meta: { public: true } },
-    { path: '/', name: 'display', component: DisplayView, meta: { roles: ['VIEWER', 'ADMIN'] } },
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('../pages/LoginPage.vue'),
+      meta: { public: true },
+    },
+    {
+      path: '/',
+      name: 'display',
+      component: () => import('../pages/DisplayPage.vue'),
+      meta: { roles: ['VIEWER', 'ADMIN'] },
+    },
     {
       path: '/admin',
-      component: AdminLayout,
+      component: () => import('../layouts/AdminLayout.vue'),
       redirect: '/admin/entry',
       meta: { roles: ['ADMIN'] },
       children: [
-        { path: 'entry', name: 'admin-entry', component: EntryView, meta: { roles: ['ADMIN'] } },
+        {
+          path: 'entry',
+          name: 'admin-entry',
+          component: () => import('../pages/admin/EntryPage.vue'),
+          meta: { roles: ['ADMIN'] },
+        },
         {
           path: 'history',
           name: 'admin-history',
-          component: HistoryView,
+          component: () => import('../pages/admin/HistoryPage.vue'),
           meta: { roles: ['ADMIN'] },
         },
-        { path: 'logs', name: 'admin-logs', component: LogsView, meta: { roles: ['ADMIN'] } },
+        {
+          path: 'logs',
+          name: 'admin-logs',
+          component: () => import('../pages/admin/LogsPage.vue'),
+          meta: { roles: ['ADMIN'] },
+        },
         {
           path: 'settings',
           name: 'admin-settings',
-          component: SettingsView,
+          component: () => import('../pages/admin/SettingsPage.vue'),
           meta: { roles: ['ADMIN'] },
         },
       ],
     },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],
+  scrollBehavior: () => ({ top: 0 }),
 });
 
-router.beforeEach(async (to) => {
+/**
+ * 守卫只读取已确认的会话状态。
+ * 应用启动时已完成 GET /auth/me（见 main.ts），此处不再触发认证请求，
+ * 因此不会与 auth store 形成循环；跳转均发生在跳转钩子内，天然去重。
+ */
+router.beforeEach((to) => {
   const auth = useAuthStore();
-  await auth.ensureLoaded();
   const role = auth.role;
 
   if (to.meta.public) {
-    // 已登录时访问登录页，按角色回跳
     if (to.path === '/login' && role) {
       return role === 'ADMIN' ? '/admin/entry' : '/';
     }

@@ -1,3 +1,4 @@
+// 日期工具（前端）：业务日期按 Asia/Shanghai，展示格式化
 const WEEKDAYS = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'] as const;
 
 /** 今天（Asia/Shanghai）的 YYYY-MM-DD */
@@ -9,13 +10,11 @@ export function todayInShanghai(): string {
     day: '2-digit',
   }).formatToParts(new Date());
   const map: Record<string, string> = {};
-  for (const part of parts) {
-    map[part.type] = part.value;
-  }
+  for (const part of parts) map[part.type] = part.value;
   return `${map['year'] ?? ''}-${map['month'] ?? ''}-${map['day'] ?? ''}`;
 }
 
-/** 根据日期字符串计算星期（星期一~星期日），与后端时区无关 */
+/** 根据日期字符串计算星期（中文），与后端时区无关 */
 export function weekdayOf(dateStr: string): string {
   const [y, m, d] = dateStr.split('-').map((s) => Number(s));
   if (!y || !m || !d) return '';
@@ -30,7 +29,13 @@ export function formatDateCn(dateStr: string): string {
   return `${m}月${d}日`;
 }
 
-/** 当前月份 YYYY-MM */
+/** YYYY-MM → 2026年8月 */
+export function formatMonthCn(month: string): string {
+  const [y, m] = month.split('-');
+  if (!y || !m) return month;
+  return `${y}年${Number(m)}月`;
+}
+
 export function currentMonthInShanghai(): string {
   return todayInShanghai().slice(0, 7);
 }
@@ -45,8 +50,9 @@ export function lastDayOfMonth(month: string): string {
 
 /** 本周（周一~周日）范围 */
 export function currentWeekRange(): { start: string; end: string } {
-  const today = todayInShanghai();
-  const [y, m, d] = today.split('-').map((s) => Number(s));
+  const [y, m, d] = todayInShanghai()
+    .split('-')
+    .map((s) => Number(s));
   const base = new Date(Date.UTC(y ?? 0, (m ?? 1) - 1, d ?? 1));
   const diff = (base.getUTCDay() + 6) % 7;
   const start = new Date(

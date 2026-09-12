@@ -1,0 +1,222 @@
+/*
+ * DormScore · MD3E Design Tokens
+ * Material 3 Expressive 语义化设计令牌：颜色 / 字体 / 形状 / 层级 / 动效 / 状态层。
+ * 组件中禁止直接写死 hex，一律引用这里或 base.css 中的语义类。
+ *
+ * 配色方向：沉稳自然的绿色 / 青绿色主色，暖金 / 米色 / 柔和橙为辅，
+ * 学术数据看板 + 宿舍生活感，干净温和，避免霓虹与高饱和。
+ */
+
+:root {
+  color-scheme: light;
+
+  /* ---- Color: primary（自然绿） ---- */
+  --md-primary: #2f6d55;
+  --md-on-primary: #ffffff;
+  --md-primary-container: #b7f0cf;
+  --md-on-primary-container: #082116;
+  --md-primary-fixed-dim: #9bd7b4;
+
+  /* ---- Color: secondary（柔绿灰） ---- */
+  --md-secondary: #4f6353;
+  --md-on-secondary: #ffffff;
+  --md-secondary-container: #d2e8d7;
+  --md-on-secondary-container: #0d1f14;
+
+  /* ---- Color: tertiary（暖金 / 米） ---- */
+  --md-tertiary: #7a5a12;
+  --md-on-tertiary: #ffffff;
+  --md-tertiary-container: #ffe2a0;
+  --md-on-tertiary-container: #261a00;
+
+  /* ---- Color: error ---- */
+  --md-error: #b3261e;
+  --md-on-error: #ffffff;
+  --md-error-container: #f9dcd8;
+  --md-on-error-container: #410e0b;
+
+  /* ---- Color: surfaces（语义层级） ---- */
+  --md-surface: #f6faf6;
+  --md-surface-dim: #d7ddd8;
+  --md-surface-bright: #f6faf6;
+  --md-surface-container-lowest: #ffffff;
+  --md-surface-container-low: #f0f6f0;
+  --md-surface-container: #eaf1eb;
+  --md-surface-container-high: #e4ebe5;
+  --md-surface-container-highest: #dee5df;
+  --md-surface-variant: #dce5dd;
+  --md-on-surface: #161d18;
+  --md-on-surface-variant: #3f4942;
+  --md-inverse-surface: #2b322c;
+  --md-inverse-on-surface: #eef1ed;
+
+  /* ---- Color: outline ---- */
+  --md-outline: #6f7972;
+  --md-outline-variant: #bfc9c1;
+  --md-scrim: rgb(12 20 15 / 0.42);
+
+  /* ---- Color: state layers ---- */
+  --md-state-hover: 0.08;
+  --md-state-focus: 0.12;
+  --md-state-pressed: 0.12;
+
+  /* ---- Score / heat（tonal，避免刺眼红绿） ---- */
+  --score-excellent: #2f8f5b; /* 20 分 */
+  --score-good: #6bbf7f; /* 15-19 */
+  --score-fair: #d9b64a; /* 10-14 */
+  --score-poor: #e08a4b; /* 5-9 */
+  --score-critical: #c65f52; /* 0-4 */
+  --score-none: var(--md-surface-container-high);
+  --score-on-dark: #10231a;
+
+  /* ---- Charts ---- */
+  --chart-1: #2f6d55;
+  --chart-2: #c08a2e;
+  --chart-3: #4a9e8f;
+  --chart-4: #c65f52;
+  --chart-5: #7d6bb0;
+  --chart-6: #3f7fa6;
+  --chart-7: #b06a9c;
+  --chart-text: #3f4942;
+  --chart-axis: #bfc9c1;
+  --chart-split: #e4ebe5;
+
+  /* ---- Typography scale ---- */
+  --font-sans:
+    'Noto Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Arial, sans-serif;
+  --font-display:
+    'Noto Sans SC', 'PingFang SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Microsoft YaHei',
+    sans-serif;
+
+  --text-display-large: 3rem; /* 48 */
+  --text-display-medium: 2.5rem; /* 40 */
+  --text-display-small: 2rem; /* 32 */
+  --text-headline-large: 1.75rem; /* 28 */
+  --text-headline-medium: 1.5rem; /* 24 */
+  --text-headline-small: 1.375rem; /* 22 */
+  --text-title-large: 1.25rem; /* 20 */
+  --text-title-medium: 1rem; /* 16 */
+  --text-title-small: 0.875rem; /* 14 */
+  --text-body-large: 1rem;
+  --text-body-medium: 0.875rem;
+  --text-body-small: 0.75rem;
+  --text-label-large: 0.875rem;
+  --text-label-medium: 0.75rem;
+  --text-label-small: 0.6875rem;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ---- Shape（expressive 圆角分级） ---- */
+  --shape-xs: 4px;
+  --shape-sm: 8px;
+  --shape-md: 12px;
+  --shape-lg: 16px;
+  --shape-xl: 20px;
+  --shape-2xl: 24px;
+  --shape-3xl: 28px;
+  --shape-hero: 32px;
+  --shape-full: 999px;
+
+  /* ---- Elevation（克制） ---- */
+  --elev-0: none;
+  --elev-1: 0 1px 2px rgb(16 35 26 / 0.08), 0 1px 3px 1px rgb(16 35 26 / 0.05);
+  --elev-2: 0 2px 6px 2px rgb(16 35 26 / 0.09), 0 1px 2px rgb(16 35 26 / 0.06);
+  --elev-3: 0 6px 16px 3px rgb(16 35 26 / 0.12), 0 2px 4px rgb(16 35 26 / 0.07);
+  --elev-4: 0 12px 28px 6px rgb(16 35 26 / 0.16), 0 3px 8px rgb(16 35 26 / 0.08);
+
+  /* ---- Motion ---- */
+  --motion-fast: 140ms;
+  --motion-medium: 220ms;
+  --motion-slow: 320ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --ease-decelerate: cubic-bezier(0, 0, 0.2, 1);
+
+  /* ---- Layout / spacing ---- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --content-max: 1440px;
+  --nav-rail-width: 96px;
+  --nav-bar-height: 64px;
+  --topbar-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ---- Dark mode：使用 MD3 dark surface 层级，而非简单黑底 ---- */
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --md-primary: #96d5b3;
+  --md-on-primary: #003824;
+  --md-primary-container: #0c5237;
+  --md-on-primary-container: #b2f1ce;
+  --md-primary-fixed-dim: #7dbb9a;
+
+  --md-secondary: #b7ccb9;
+  --md-on-secondary: #233429;
+  --md-secondary-container: #394b3f;
+  --md-on-secondary-container: #d2e8d7;
+
+  --md-tertiary: #e9c46a;
+  --md-on-tertiary: #402d00;
+  --md-tertiary-container: #5c4300;
+  --md-on-tertiary-container: #ffe2a0;
+
+  --md-error: #f2b8b5;
+  --md-on-error: #601410;
+  --md-error-container: #8c1d18;
+  --md-on-error-container: #f9dcd8;
+
+  --md-surface: #0f1512;
+  --md-surface-dim: #0f1512;
+  --md-surface-bright: #353c37;
+  --md-surface-container-lowest: #0a100d;
+  --md-surface-container-low: #171d1a;
+  --md-surface-container: #1b221e;
+  --md-surface-container-high: #252c28;
+  --md-surface-container-highest: #303733;
+  --md-surface-variant: #3f4942;
+  --md-on-surface: #dfe5df;
+  --md-on-surface-variant: #bfc9c1;
+  --md-inverse-surface: #dfe5df;
+  --md-inverse-on-surface: #2b322c;
+
+  --md-outline: #89938c;
+  --md-outline-variant: #3f4942;
+  --md-scrim: rgb(0 0 0 / 0.6);
+
+  --score-excellent: #7fd4a2;
+  --score-good: #9fd7a6;
+  --score-fair: #e6c869;
+  --score-poor: #eaa76a;
+  --score-critical: #ec8a7d;
+  --score-none: var(--md-surface-container-high);
+  --score-on-dark: #10231a;
+
+  --chart-1: #96d5b3;
+  --chart-2: #e9c46a;
+  --chart-3: #6cc7b8;
+  --chart-4: #ec8a7d;
+  --chart-5: #b3a2e0;
+  --chart-6: #7fb6d9;
+  --chart-7: #d894c4;
+  --chart-text: #bfc9c1;
+  --chart-axis: #4a5450;
+  --chart-split: #303733;
+
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.4), 0 1px 3px 1px rgb(0 0 0 / 0.3);
+  --elev-2: 0 2px 6px 2px rgb(0 0 0 / 0.45), 0 1px 2px rgb(0 0 0 / 0.35);
+  --elev-3: 0 6px 16px 3px rgb(0 0 0 / 0.5), 0 2px 4px rgb(0 0 0 / 0.4);
+  --elev-4: 0 12px 28px 6px rgb(0 0 0 / 0.55), 0 3px 8px rgb(0 0 0 / 0.45);
+}
