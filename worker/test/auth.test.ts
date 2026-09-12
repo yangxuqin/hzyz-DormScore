@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { hashPassword, verifyPassword } from '../src/auth/password';
 import { generateToken, hashToken, sessionExpiry } from '../src/auth/session';
-import { INITIAL_PASSWORD_HASH } from '../src/constants';
+import { INITIAL_PASSWORD_HASH } from '../src/domain/dorm/constants';
 
 describe('password hash/verify', () => {
   it('哈希后可验证，错误密码失败', async () => {

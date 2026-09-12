@@ -9,7 +9,7 @@ import {
   weekdayName,
   weekdayOf,
   weekLabel,
-} from '../src/date';
+} from '../src/shared/date';
 
 describe('weekdayOf / weekdayName', () => {
   it('2026-08-16 是星期日（1.md 示例）', () => {

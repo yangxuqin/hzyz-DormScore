@@ -1,6 +1,7 @@
 packages:
   - worker
   - web
+  - packages/*
 
 # 允许安装后执行构建脚本的依赖（esbuild 二进制、workerd 运行时）
 allowBuilds:

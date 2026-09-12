@@ -1,5 +1,5 @@
 // 会话令牌：256 位随机令牌，库中只存 SHA-256 哈希
-import { SESSION_TTL_SECONDS } from '../constants';
+import { SESSION_TTL_SECONDS } from '../domain/dorm/constants';
 
 export function generateToken(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));

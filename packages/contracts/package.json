@@ -1,0 +1,20 @@
+{
+  "name": "@dorm/contracts",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "DormScore 前后端共享的 API 契约类型（纯类型，无运行时依赖）",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3"
+  }
+}

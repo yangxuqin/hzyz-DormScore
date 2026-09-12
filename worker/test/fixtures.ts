@@ -1,6 +1,7 @@
 // 测试夹具：标准床位/成员配置、记录构造器
-import type { AppConfig, InspectionRecord, UserStatusEntry } from '../src/types';
-import { INITIAL_PASSWORD_HASH } from '../src/constants';
+import type { AppConfig } from '@dorm/contracts';
+import { INITIAL_PASSWORD_HASH } from '../src/domain/dorm/constants';
+import type { BedPool, InspectionRecord, UserStatusEntry } from '../src/domain/dorm/model';
 
 export const CONFIG: AppConfig = {
   beds: [
@@ -25,7 +26,13 @@ export function allNormal(): UserStatusEntry[] {
   return CONFIG.users.map((u) => ({ userId: u.id, status: 'NORMAL' as const }));
 }
 
+/** 快捷构造一个扣分池（默认 2 分快照） */
+export function pool(period: BedPool['period'], item: BedPool['item'], beds: number[]): BedPool {
+  return { period, item, beds: [...beds].sort((a, b) => a - b), deduction: 2 };
+}
+
 let nextRecordId = 1;
+
 export function makeRecord(overrides: Partial<InspectionRecord> = {}): InspectionRecord {
   return {
     id: nextRecordId++,
