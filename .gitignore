@@ -11,3 +11,4 @@ wrangler.local.toml
 coverage/
 .vite/
 *.log
+.zcode/
