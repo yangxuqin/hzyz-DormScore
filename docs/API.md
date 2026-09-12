@@ -1,7 +1,8 @@
 # API 接口契约
 
-> 后端：Cloudflare Workers（worker/），前端（web/）必须严格按本文档对接。
-> 所有响应均为 JSON；除登录外均需携带会话 Cookie（登录时由服务端下发，前端 fetch 使用 `credentials: 'include'`）。
+> 后端：Cloudflare Workers（`worker/`），共享类型：`packages/contracts`。
+> 前端（`web/`）必须严格按本文档对接。
+> 所有响应均为 JSON；除登录外均需携带会话 Cookie（`fetch` 使用 `credentials: 'include'`）。
 
 ## 1. 通用约定
 
@@ -10,45 +11,43 @@
 ```ts
 // 成功
 { "ok": true, "data": ... }
-// 失败（HTTP 状态码 400/401/403/404/409/429/500 等）
+// 失败（HTTP 400/401/403/404/409/429/500 等）
 { "ok": false, "error": { "code": string, "message": string } }
 ```
 
 ### 1.2 错误码
 
-| code                                                                                | 含义                                     |
-| ----------------------------------------------------------------------------------- | ---------------------------------------- |
-| UNAUTHORIZED                                                                        | 未登录或会话过期（前端收到后跳转登录页） |
-| FORBIDDEN                                                                           | 会话权限不足（展示会话调用管理接口）     |
-| CSRF_REJECTED                                                                       | 跨源请求被拒绝                           |
-| INVALID_BODY                                                                        | 请求体格式错误                           |
-| INVALID_PASSWORD                                                                    | 登录密码错误                             |
-| RATE_LIMITED                                                                        | 登录尝试次数过多，已被锁定               |
-| NOT_INITIALIZED                                                                     | 密码未初始化                             |
-| NOT_FOUND                                                                           | 资源不存在 / 接口不存在                  |
-| INVALID_DATE / DATE_IN_FUTURE                                                       | 日期格式错误 / 未来日期                  |
-| INVALID_DUTY_USER / DUTY_USER_ON_LEAVE                                              | 值日生无效 / 请假人员当值日生            |
-| INVALID_USER_STATUS / INVALID_BED_CHECK / INVALID_PUBLIC_CHECK / INVALID_TALK_COUNT | 录入数据校验失败                         |
-| DATE_CONFLICT                                                                       | 修改日期时目标日期已有另一条记录         |
-| INVALID_ID / INVALID_RANGE / INVALID_MONTH                                          | 参数错误                                 |
-| INVALID_CURRENT_PASSWORD / INVALID_PASSWORD                                         | 改密码时当前密码错误 / 新密码不合规      |
-| INVALID_MEMBERS                                                                     | 成员配置校验失败                         |
-| INTERNAL                                                                            | 服务器内部错误                           |
+| code                                                                                  | HTTP | 含义                            |
+| ------------------------------------------------------------------------------------- | ---- | ------------------------------- |
+| UNAUTHORIZED                                                                          | 401  | 未登录/会话过期（前端跳登录）   |
+| FORBIDDEN                                                                             | 403  | 权限不足（展示会话调写接口）    |
+| CSRF_REJECTED                                                                         | 403  | 跨源请求被拒绝                  |
+| NOT_FOUND                                                                             | 404  | 资源/接口不存在                 |
+| DATE_CONFLICT                                                                         | 409  | 改日期时目标日期已有记录        |
+| RATE_LIMITED                                                                          | 429  | 登录尝试过多被锁定              |
+| INVALID_BODY / INVALID_DATE / DATE_IN_FUTURE / INVALID_DUTY_USER / DUTY_USER_ON_LEAVE | 400  | 录入校验失败                    |
+| INVALID_USER_STATUS / INVALID_BED_CHECK / INVALID_PUBLIC_CHECK / INVALID_TALK_COUNT   | 400  | 录入数据校验失败                |
+| INVALID_ID / INVALID_RANGE / INVALID_MONTH                                            | 400  | 参数错误                        |
+| INVALID_CURRENT_PASSWORD / INVALID_PASSWORD                                           | 401  | 改密：当前密码错误/新密码不合规 |
+| INVALID_MEMBERS                                                                       | 400  | 成员配置校验失败                |
+| NOT_INITIALIZED / INTERNAL                                                            | 500  | 未初始化/内部错误               |
 
 ### 1.3 枚举与常量
 
 ```ts
 type Period = 'AM' | 'PM'; // 上午 / 下午
-type UserStatus = 'NORMAL' | 'LEAVE'; // 正常 / 请假
+type UserStatus = 'NORMAL' | 'LEAVE';
 type BedItem = 'BED' | 'FLOOR'; // 床面 / 床下地面
 type PublicItem = 'TRASH' | 'BALCONY' | 'INDOOR' | 'TOILET' | 'SINK' | 'TABLE';
-// 垃圾桶 / 阳台地面 / 室内地面 / 厕所 / 洗衣槽 / 置物桌
 type InspectionStatus = 'ACTIVE' | 'REVOKED';
-
-// 扣分规则（前端录入页实时统计用）：
-// 床位项目 2 分/项，公共项目 1 分/项，讲话 2 分/次
-// 每日总扣分 = 床位 + 公共 + 讲话；每日得分 = max(0, 20 - 总扣分)
 ```
+
+**★ 扣分规则（扣分池模型）**
+
+- 一个扣分池 = `period × item`，固定扣 **2 分**（与命中床位数量无关）；全天床位最多 8 分。
+- 公共区域按 `period × item` 计，每项 **1 分**。
+- 讲话 **2 分/次**（宿舍级，不计个人）。
+- 每日总扣分 = 床位 + 公共 + 纪律；每日得分 = `max(0, 20 - 总扣分)`。
 
 ---
 
@@ -59,24 +58,14 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```ts
 // 请求
 { role: 'VIEWER' | 'ADMIN', password: string }
-// 成功 200：设置 HttpOnly Cookie（长期会话），返回
+// 200：设置 HttpOnly Cookie，返回
 { ok: true, data: { role: 'VIEWER' | 'ADMIN' } }
-// 失败 401 / 429（锁定）
+// 401 INVALID_PASSWORD / 429 RATE_LIMITED
 ```
 
-### POST /api/auth/logout
+### POST /api/auth/logout → `{ ok: true, data: null }`
 
-```ts
-// 200
-{ ok: true, data: null }
-```
-
-### GET /api/auth/me
-
-```ts
-// 200（未登录也返回 200，role 为 null）
-{ ok: true, data: { role: 'VIEWER' | 'ADMIN' | null } }
-```
+### GET /api/auth/me → `{ ok: true, data: { role: 'VIEWER' | 'ADMIN' | null } }`
 
 ---
 
@@ -86,20 +75,20 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 
 ```ts
 { ok: true, data: {
-  beds: [{ id: number, name: string, type: 'double' | 'single', sort: number }],
-  users: [{ id: number, name: string, bedId: number, position: 'upper' | 'lower' | 'single', sort: number }],
+  beds:  [{ id, name, type: 'double'|'single', sort }],
+  users: [{ id, name, bedId, position: 'upper'|'lower'|'single', sort }],
 } }
 ```
 
 ### PUT /api/config/members（仅 ADMIN）
 
 ```ts
-// 请求：7 人完整列表（id 不变，可改 name/bedId/position）
+// 请求：完整成员列表（id 不变，可改 name/bedId/position）
 {
   users: [{ id, name, bedId, position }];
 }
-// 校验：姓名 1-20 字；上下铺床恰好一上一下；单人床恰好一人
-// 成功 200：{ ok: true, data: <同 GET /api/config> }
+// 校验：姓名 1-20 字；上下铺恰好一上一下；单人床恰好一人
+// 200：<同 GET /api/config>
 ```
 
 ---
@@ -111,25 +100,9 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ```ts
 { ok: true, data: {
   // 今日无有效记录 → null（前端显示 "-"）
-  today: {
-    date: string,            // YYYY-MM-DD
-    bedDeduction: number,    // 床位扣分
-    publicDeduction: number, // 公共区域扣分
-    disciplineDeduction: number, // 纪律扣分
-    talkCount: number,       // 讲话总次数
-    totalDeduction: number,  // 总扣分
-    score: number,           // 今日得分（0-20）
-    // 今日明细（展示页"今日明细"卡片）
-    weekday: string,         // 如 "星期日"
-    dutyUserId: number, dutyUserName: string,
-    leaveUsers: { userId: number, name: string }[],
-    am: { bedChecks: {bedId, bedName, item, itemLabel}[], publicChecks: {item, itemLabel}[], talk: number },
-    pm: { 同上 },
-  } | null,
-  // 本周无有效日 → null
-  weekRate: { label: string /* 08/10-08/16 */, rate: number /* 88.75 */, days: number, fullScoreDays: number } | null,
-  // 本月无有效日 → null
-  monthRate: { label: string /* 2026-08 */, rate: number, days: number, fullScoreDays: number } | null,
+  today: EnrichedRecord | null,
+  weekRate:  { label, rate, days, fullScoreDays } | null,
+  monthRate: { label, rate, days, fullScoreDays } | null,
 } }
 ```
 
@@ -137,63 +110,48 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 
 ```ts
 { ok: true, data: { points: [{
-  date: string, score: number,
-  totalDeduction: number, bedDeduction: number,
-  publicDeduction: number, disciplineDeduction: number, talkCount: number,
-}] } }
-// 仅有效日，按日期升序
+  date, score,
+  totalDeduction, bedDeduction, publicDeduction, disciplineDeduction, talkCount,
+}] } } // 仅有效日，按日期升序
 ```
 
 ### GET /api/stats/trend/weekly
 
 ```ts
-{ ok: true, data: { points: [{ key: string /* 周一日期 */, label: string /* 08/10-08/16 */, rate: number, days: number }] } }
-// 仅包含有有效日的周，按时间升序
+{ ok: true, data: { points: [{ key /* 周一日期 */, label /* 08/10-08/16 */, rate, days }] } }
 ```
 
 ### GET /api/stats/trend/monthly
 
 ```ts
-{ ok: true, data: { points: [{ key: string /* 2026-08 */, label: string, rate: number, days: number }] } }
+{ ok: true, data: { points: [{ key /* 2026-08 */, label, rate, days }] } }
 ```
 
 ### GET /api/stats/calendar?month=YYYY-MM
 
 ```ts
-// month 可省略 → 默认当前月；months 包含所有有记录的月份与当前月的并集（供切换器）
 { ok: true, data: {
-  selectedMonth: string,          // 实际选中的月份 YYYY-MM
-  months: string[],               // 升序
-  days: [{ date: string, weekday: number /* 1=周一 … 7=周日 */, score: number | null }],
-  // score 为当日得分；无有效记录（含 REVOKED）为 null
+  selectedMonth: string,
+  months: string[],                      // 升序（有记录月份 ∪ 当前月）
+  days: [{ date, weekday /* 1=周一…7=周日 */, score: number | null }],
 } }
 ```
 
 ### GET /api/stats/day?date=YYYY-MM-DD
 
 ```ts
-// 日历点选后的单日完整明细；date 必填
 { ok: true, data: EnrichedRecord | null }
-// 有有效记录 → 同 /api/admin/inspections 的 EnrichedRecord（值日生、请假、
-// 上午/下午床位与公共检查项、讲话次数、各项扣分与得分）
-// 无有效记录（含 REVOKED）→ null
-// date 格式非法 → 400 INVALID_DATE
+// 无有效记录（含 REVOKED）→ null；格式非法 → 400 INVALID_DATE
 ```
 
 ### GET /api/stats/personal?month=YYYY-MM
 
 ```ts
-// month 可省略 → 默认最新有数据的月份
 { ok: true, data: {
-  selectedMonth: string | null,   // 实际选中的月份（无任何数据时为 null）
-  months: string[],               // 所有有有效记录的月份（升序，供切换器）
-  users: [{
-    userId: number, name: string,
-    deduction: number,        // 合计个人扣分
-    bedDeduction: number,     // 床位个人区域分摊
-    publicDeduction: number,  // 值日生公共区域扣分
-    dutyCount: number,        // 本月值日天数
-  }], // 7 人，按 sort 排序
+  selectedMonth: string | null,
+  months: string[],
+  users: [{ userId, name, deduction, bedDeduction, publicDeduction, dutyCount }],
+  // deduction 允许小数（个人分摊）
 } }
 ```
 
@@ -203,26 +161,24 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 { ok: true, data: {
   selectedMonth: string | null,
   months: string[],
-  items: [{ key: string, label: string, count: number }], // 固定 8 项：床面/床下地面/垃圾桶/阳台地面/室内地面/厕所/洗衣槽/置物桌
+  items: [{ key, label, count }], // 固定 8 项
 } }
 ```
 
 ### GET /api/stats/discipline
 
 ```ts
-{ ok: true, data: { records: [{ date: string, talkAm: number, talkPm: number, count: number }] } }
-// 仅违纪次数 > 0 的日期，按日期倒序
+{ ok: true, data: { records: [{ date, talkAm, talkPm, count }] } } // count>0，日期倒序
 ```
 
 ---
 
-## 5. 管理接口（全部要求 ADMIN）
+## 5. 管理接口（全部 ADMIN）
 
-### GET /api/admin/inspections?from=YYYY-MM-DD&to=YYYY-MM-DD
+### GET /api/admin/inspections?from=&to=
 
 ```ts
-// from/to 均可省略；记录按日期升序
-{ ok: true, data: { records: [EnrichedRecord] } }
+{ ok: true, data: { records: [EnrichedRecord] } } // 日期升序
 ```
 
 ### GET /api/admin/inspections/by-date?date=YYYY-MM-DD
@@ -237,23 +193,25 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 // 请求
 {
   id?: number,        // 更新已有记录时携带（改日期必需）；省略则按 date 查找
-  date: string,       // 必须 ≤ 今天
-  dutyUserId: number, // 当天状态必须为 NORMAL
-  talkAm: number,     // 非负整数
-  talkPm: number,
-  userStatus: [{ userId: number, status: 'NORMAL' | 'LEAVE' }], // 7 人完整
-  bedChecks: [{ period: Period, bedId: number, item: BedItem }],
-  publicChecks: [{ period: Period, item: PublicItem }],
-  reason?: string,    // 修改原因（非必填）
+  date: string,       // ≤ 今天（Asia/Shanghai）
+  dutyUserId: number, // 当天状态必须 NORMAL
+  talkAm: number, talkPm: number,            // 非负整数
+  userStatus: [{ userId, status }],          // 全部成员完整
+  bedChecks: [{ period, item, beds: number[] }], // ★ 扣分池：同时段同区域只能一个，beds 非空
+  publicChecks: [{ period, item }],
+  reason?: string,
 }
-// 成功 200
+// 200
 { ok: true, data: { record: EnrichedRecord, action: 'created' | 'updated' | 'unchanged' } }
-// 409 DATE_CONFLICT：改日期时目标日期已有记录；400 各类校验失败
+// 409 DATE_CONFLICT；400 各类校验失败
 ```
 
-### POST /api/admin/inspections/:id/revoke（可带 { reason }）
+> 注意：`bedChecks` 是**池**数组，不是逐床数组。例如上午 1、3 床床下出问题应提交
+> `{ period: 'AM', item: 'FLOOR', beds: [1, 3] }`。
 
-### POST /api/admin/inspections/:id/restore（可带 { reason }）
+### POST /api/admin/inspections/:id/revoke（可带 `{ reason }`）
+
+### POST /api/admin/inspections/:id/restore（可带 `{ reason }`）
 
 ```ts
 { ok: true, data: { record: EnrichedRecord, action: 'updated' | 'unchanged' } }
@@ -263,56 +221,54 @@ type InspectionStatus = 'ACTIVE' | 'REVOKED';
 ### GET /api/admin/audit-logs?limit=50&offset=0
 
 ```ts
-{ ok: true, data: {
-  total: number,
-  logs: [{
-    id: number, operator: string,           // 固定 "管理员"
-    action: 'CREATE' | 'UPDATE' | 'REVOKE' | 'RESTORE' | 'CHANGE_PASSWORD' | 'UPDATE_CONFIG',
-    target: string,                         // 如 "inspection:2026-08-16"
-    beforeJson: string | null,              // 修改前数据（JSON 字符串）
-    afterJson: string | null,               // 修改后数据
-    reason: string | null,
-    createdAt: string,                      // ISO 时间
-  }],
-} }
-// 按 id 倒序（最新在前）；limit 最大 100
+{ ok: true, data: { total, logs: [{ id, operator, action, target, beforeJson, afterJson, reason, createdAt }] } }
+// limit 最大 100，按 id 倒序
 ```
 
 ### PUT /api/admin/passwords
 
 ```ts
-// 请求（至少修改一个密码，新密码 4-64 位）
 { currentAdminPassword: string, viewerPassword?: string, adminPassword?: string }
-// 成功 200：{ ok: true, data: null }
-// 401 INVALID_CURRENT_PASSWORD
+// 至少修改一个；新密码 4-64 位；200 → { ok: true, data: null }；401 INVALID_CURRENT_PASSWORD
 ```
 
-### EnrichedRecord 完整结构
+---
+
+## 6. EnrichedRecord（记录输出结构）
 
 ```ts
 {
   id: number,
-  date: string, weekday: string,            // 如 "星期日"
+  date: string, weekday: string,             // 如 "星期日"
   dutyUserId: number, dutyUserName: string,
   status: 'ACTIVE' | 'REVOKED',
   talkAm: number, talkPm: number,
-  userStatus: [{ userId: number, userName: string, status: 'NORMAL' | 'LEAVE' }],
-  bedChecks: [{ period: Period, bedId: number, bedName: string, item: BedItem, itemLabel: string }],
-  publicChecks: [{ period: Period, item: PublicItem, itemLabel: string }],
-  bedDeduction: number, publicDeduction: number,
+  userStatus: [{ userId, userName, status }],
+  // ★ 床位扣分池（最多 4 个）
+  bedChecks: [{
+    period: Period, item: BedItem, itemLabel: string, // "床面" / "床下地面"
+    beds: number[],                                   // 命中床位 id（升序）
+    bedNames: string[],                               // ["1床", "3床"]
+    deduction: number,                                // 该池扣分（快照）
+    responsibleUsers: [{ userId, name, share }],      // 责任人及人均分摊（排除请假）
+  }],
+  publicChecks: [{ period, item, itemLabel }],
+  bedDeduction: number,       // = Σ 各池 deduction
+  publicDeduction: number,
   disciplineDeduction: number, talkCount: number,
   totalDeduction: number, score: number,
   createdAt: string, updatedAt: string,
 }
 ```
 
+> 前端**不得**自行推断责任分摊与扣分，一律使用后端返回字段。
+
 ---
 
-## 6. 前端对接要点
+## 7. 前端对接要点
 
-1. 会话 Cookie 由服务端下发（HttpOnly），前端所有请求 `credentials: 'include'`；收到 401 且 code=UNAUTHORIZED 时跳登录页。
-2. 展示页对 VIEWER 隐藏一切写入口；后端亦强制拦截（双保险）。
-3. 录入页"今天"与"星期"：星期直接使用接口返回的 `weekday` 字段或自行计算；日期选择器 max 设为今天（Asia/Shanghai，与后端一致）。
-4. 月份切换器使用各接口返回的 `months` 数组，默认选中 `selectedMonth`（最新有数据月份）。
-5. 录入页实时统计由前端按 §1.3 规则本地计算，仅作展示；以提交后服务端返回为准。
-6. 修改历史记录时带上 `id`；改日期可能返回 409 DATE_CONFLICT，需要向用户展示错误。
+1. 所有请求 `credentials: 'include'`；收到 401 + `UNAUTHORIZED` 时由**全局唯一**处理器清会话并跳登录页。
+2. 会话在应用启动时通过 `GET /auth/me` 确认一次，路由守卫读取缓存角色，避免循环重定向。
+3. 录入页实时统计由前端按扣分池规则本地计算（与后端一致），仅作预览，以提交后返回为准。
+4. 月份切换器使用接口返回的 `months`，默认 `selectedMonth`。
+5. 修改历史记录时携带 `id`；改日期可能返回 409 `DATE_CONFLICT`，需提示用户。

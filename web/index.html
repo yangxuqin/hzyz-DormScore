@@ -3,10 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#2563eb" />
-    <title>宿舍分数系统</title>
+    <meta name="theme-color" content="#f6faf6" />
+    <title>DormScore · 宿舍成绩</title>
     <script>
-      // 首屏前应用主题，避免闪烁（与 stores/theme.ts 的规则保持一致）
+      // 首屏前应用主题，避免闪烁（与 stores/theme.ts 规则一致）
       (function () {
         try {
           var saved = localStorage.getItem('dorm.theme');
@@ -17,6 +17,8 @@
                 ? 'dark'
                 : 'light';
           document.documentElement.dataset.theme = theme;
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute('content', theme === 'dark' ? '#0f1512' : '#f6faf6');
         } catch (e) {
           /* ignore */
         }

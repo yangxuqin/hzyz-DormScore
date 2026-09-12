@@ -60,8 +60,9 @@ export async function verifyPassword(password: string, stored: string): Promise<
   const parts = stored.split('$');
   if (parts.length !== 4 || parts[0] !== 'pbkdf2') return false;
   const iterations = Number(parts[1]);
-  if (!Number.isInteger(iterations) || iterations <= 0 || iterations > MAX_ACCEPTED_ITERATIONS)
+  if (!Number.isInteger(iterations) || iterations <= 0 || iterations > MAX_ACCEPTED_ITERATIONS) {
     return false;
+  }
   const salt = fromB64(parts[2]!);
   const expected = fromB64(parts[3]!);
   if (!salt || !expected || expected.length === 0) return false;

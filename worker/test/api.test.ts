@@ -1,9 +1,9 @@
 // API 集成测试：登录/角色隔离/录入/修改/撤回/恢复/日志/密码/配置 全流程
 import { beforeEach, describe, expect, it } from 'vitest';
-import { createApp } from '../src/app';
-import { todayInShanghai, monthKeyOf } from '../src/date';
-import { resetLoginAttemptsForTest } from '../src/middleware/rate-limit';
-import type { Env } from '../src/types';
+import { createApp } from '../src/app/createApp';
+import { resetLoginAttemptsForTest } from '../src/auth/rate-limit';
+import { monthKeyOf, todayInShanghai } from '../src/shared/date';
+import type { Env } from '../src/app/context';
 import { CONFIG, allNormal } from './fixtures';
 import { MemStore } from './mem-store';
 
@@ -42,8 +42,7 @@ async function requestAsAdmin(
   path: string,
   body?: unknown,
 ): Promise<Response> {
-  const loginRes = await login(app, 'ADMIN', 'admin', 'admin-ip');
-  const cookie = cookieOf(loginRes);
+  const cookie = cookieOf(await login(app, 'ADMIN', 'admin', 'admin-ip'));
   return app.request(
     path,
     {
@@ -55,7 +54,7 @@ async function requestAsAdmin(
   );
 }
 
-/** 1.md §18 示例数据 */
+/** 扣分池示例：床位池 4 + 公共 3 + 讲话 2 → 总扣 9，得分 11 */
 function sampleBody(date: string) {
   return {
     date,
@@ -64,9 +63,8 @@ function sampleBody(date: string) {
     talkPm: 0,
     userStatus: allNormal(),
     bedChecks: [
-      { period: 'AM', bedId: 1, item: 'BED' },
-      { period: 'PM', bedId: 1, item: 'BED' },
-      { period: 'PM', bedId: 2, item: 'BED' },
+      { period: 'AM', item: 'BED', beds: [1] },
+      { period: 'PM', item: 'BED', beds: [1, 2] },
     ],
     publicChecks: [
       { period: 'AM', item: 'TRASH' },
@@ -88,9 +86,7 @@ describe('认证与会话', () => {
 
   it('展示/管理分别登录，me 返回对应角色', async () => {
     const { app } = makeApp();
-    const viewerRes = await login(app, 'VIEWER', 'admin', 'v-ip');
-    expect(viewerRes.status).toBe(200);
-    const viewerCookie = cookieOf(viewerRes);
+    const viewerCookie = cookieOf(await login(app, 'VIEWER', 'admin', 'v-ip'));
     const viewerMe = await app.request('/api/auth/me', { headers: { cookie: viewerCookie } }, env);
     expect(((await viewerMe.json()) as { data: { role: string } }).data.role).toBe('VIEWER');
 
@@ -105,22 +101,15 @@ describe('认证与会话', () => {
   it('密码错误 → 401；5 次失败后锁定 429（即使密码正确）', async () => {
     const { app } = makeApp();
     for (let i = 0; i < 5; i++) {
-      const res = await login(app, 'ADMIN', 'wrong', 'lock-ip');
-      expect(res.status).toBe(401);
+      expect((await login(app, 'ADMIN', 'wrong', 'lock-ip')).status).toBe(401);
     }
-    const locked = await login(app, 'ADMIN', 'admin', 'lock-ip');
-    expect(locked.status).toBe(429);
+    expect((await login(app, 'ADMIN', 'admin', 'lock-ip')).status).toBe(429);
   });
 
   it('注销后 me 为 null', async () => {
     const { app } = makeApp();
     const cookie = cookieOf(await login(app, 'VIEWER', 'admin', 'lo-ip'));
-    const logout = await app.request(
-      '/api/auth/logout',
-      { method: 'POST', headers: { cookie } },
-      env,
-    );
-    expect(logout.status).toBe(200);
+    await app.request('/api/auth/logout', { method: 'POST', headers: { cookie } }, env);
     const me = await app.request('/api/auth/me', { headers: { cookie } }, env);
     expect(((await me.json()) as { data: { role: string | null } }).data.role).toBeNull();
   });
@@ -129,12 +118,11 @@ describe('认证与会话', () => {
 describe('角色隔离（1.md §39 核心要求）', () => {
   it('展示会话访问只读接口正常，访问任何写接口 → 403', async () => {
     const { app } = makeApp();
-    const viewerRes = await login(app, 'VIEWER', 'admin', 'role-ip');
-    const cookie = cookieOf(viewerRes);
-    const overview = await app.request('/api/stats/overview', { headers: { cookie } }, env);
-    expect(overview.status).toBe(200);
-    const config = await app.request('/api/config', { headers: { cookie } }, env);
-    expect(config.status).toBe(200);
+    const cookie = cookieOf(await login(app, 'VIEWER', 'admin', 'role-ip'));
+    expect((await app.request('/api/stats/overview', { headers: { cookie } }, env)).status).toBe(
+      200,
+    );
+    expect((await app.request('/api/config', { headers: { cookie } }, env)).status).toBe(200);
 
     const today = todayInShanghai();
     const forbidden = [
@@ -160,8 +148,70 @@ describe('角色隔离（1.md §39 核心要求）', () => {
   });
 });
 
+describe('★ 扣分池业务语义（API 层）', () => {
+  it('AM FLOOR 命中 1、3 床 → 宿舍扣 2 分，个人各 0.5', async () => {
+    const { app } = makeApp();
+    const today = todayInShanghai();
+    const res = await requestAsAdmin(app, 'POST', '/api/admin/inspections', {
+      date: today,
+      dutyUserId: 3,
+      talkAm: 0,
+      talkPm: 0,
+      userStatus: allNormal(),
+      bedChecks: [{ period: 'AM', item: 'FLOOR', beds: [1, 3] }],
+      publicChecks: [],
+    });
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as {
+      data: { record: { totalDeduction: number; score: number; bedChecks: unknown[] } };
+    };
+    expect(data.data.record.totalDeduction).toBe(2);
+    expect(data.data.record.score).toBe(18);
+    expect(data.data.record.bedChecks).toEqual([
+      {
+        period: 'AM',
+        item: 'FLOOR',
+        itemLabel: '床下地面',
+        beds: [1, 3],
+        bedNames: ['1床', '3床'],
+        deduction: 2,
+        responsibleUsers: [
+          { userId: 1, name: 'User1', share: 0.5 },
+          { userId: 2, name: 'User2', share: 0.5 },
+          { userId: 5, name: 'User5', share: 0.5 },
+          { userId: 6, name: 'User6', share: 0.5 },
+        ],
+      },
+    ]);
+  });
+
+  it('四个池全命中 → 床位扣 8 分（而非 16）', async () => {
+    const { app } = makeApp();
+    const today = todayInShanghai();
+    const res = await requestAsAdmin(app, 'POST', '/api/admin/inspections', {
+      date: today,
+      dutyUserId: 3,
+      talkAm: 0,
+      talkPm: 0,
+      userStatus: allNormal(),
+      bedChecks: [
+        { period: 'AM', item: 'BED', beds: [1, 2, 3, 4] },
+        { period: 'AM', item: 'FLOOR', beds: [1, 2, 3, 4] },
+        { period: 'PM', item: 'BED', beds: [1, 2, 3, 4] },
+        { period: 'PM', item: 'FLOOR', beds: [1, 2, 3, 4] },
+      ],
+      publicChecks: [],
+    });
+    const data = (await res.json()) as {
+      data: { record: { bedDeduction: number; score: number } };
+    };
+    expect(data.data.record.bedDeduction).toBe(8);
+    expect(data.data.record.score).toBe(12);
+  });
+});
+
 describe('录入 / 更新 / 历史', () => {
-  it('创建记录 → 概览/个人/频次/纪律 全部按规则计算', async () => {
+  it('创建记录 → 概览/个人/频次/日历/单日/纪律 全部按规则计算', async () => {
     const { app, store } = makeApp();
     const today = todayInShanghai();
     const createRes = await requestAsAdmin(
@@ -175,20 +225,22 @@ describe('录入 / 更新 / 历史', () => {
       data: { action: string; record: { score: number; totalDeduction: number } };
     };
     expect(created.data.action).toBe('created');
-    expect(created.data.record.score).toBe(9);
-    expect(created.data.record.totalDeduction).toBe(11);
+    expect(created.data.record.score).toBe(11);
+    expect(created.data.record.totalDeduction).toBe(9);
 
-    // 概览
     const viewerCookie = cookieOf(await login(app, 'VIEWER', 'admin', 'calc-ip'));
     const overview = await app.request(
       '/api/stats/overview',
       { headers: { cookie: viewerCookie } },
       env,
     );
-    const overviewData = ((await overview.json()) as { data: { today: { score: number } } }).data;
-    expect(overviewData.today.score).toBe(9);
+    const overviewData = (
+      (await overview.json()) as { data: { today: { score: number; bedDeduction: number } } }
+    ).data;
+    expect(overviewData.today.score).toBe(11);
+    expect(overviewData.today.bedDeduction).toBe(4);
 
-    // 个人：U1=2 U2=2 U3=4 U4=1
+    // 个人：U1=1.5 U2=1.5 U3=3.5 U4=0.5
     const personal = await app.request(
       '/api/stats/personal?month=' + monthKeyOf(today),
       { headers: { cookie: viewerCookie } },
@@ -199,7 +251,6 @@ describe('录入 / 更新 / 历史', () => {
         data: {
           users: {
             userId: number;
-            name: string;
             deduction: number;
             bedDeduction: number;
             publicDeduction: number;
@@ -209,13 +260,23 @@ describe('录入 / 更新 / 历史', () => {
       }
     ).data;
     const byId = new Map(personalData.users.map((u) => [u.userId, u.deduction]));
-    expect(byId.get(1)).toBe(2);
-    expect(byId.get(2)).toBe(2);
-    expect(byId.get(3)).toBe(4);
-    expect(byId.get(4)).toBe(1);
+    expect(byId.get(1)).toBe(1.5);
+    expect(byId.get(2)).toBe(1.5);
+    expect(byId.get(3)).toBe(3.5);
+    expect(byId.get(4)).toBe(0.5);
     expect(byId.get(7)).toBe(0);
 
-    // 频次：床面 3、垃圾桶 1、厕所 1、置物桌 1
+    const u3 = personalData.users.find((u) => u.userId === 3)!;
+    expect(u3).toEqual({
+      userId: 3,
+      name: 'User3',
+      deduction: 3.5,
+      bedDeduction: 0.5,
+      publicDeduction: 3,
+      dutyCount: 1,
+    });
+
+    // 频次：一个池计一次 → 床面 2、垃圾桶 1、厕所 1、置物桌 1
     const freq = await app.request(
       '/api/stats/frequency?month=' + monthKeyOf(today),
       { headers: { cookie: viewerCookie } },
@@ -224,23 +285,12 @@ describe('录入 / 更新 / 历史', () => {
     const freqData = ((await freq.json()) as { data: { items: { key: string; count: number }[] } })
       .data;
     const freqByKey = new Map(freqData.items.map((i) => [i.key, i.count]));
-    expect(freqByKey.get('BED')).toBe(3);
+    expect(freqByKey.get('BED')).toBe(2);
     expect(freqByKey.get('TRASH')).toBe(1);
     expect(freqByKey.get('TOILET')).toBe(1);
     expect(freqByKey.get('TABLE')).toBe(1);
 
-    // 个人：新增构成字段（床位/公共/值日次数）
-    const u3 = personalData.users.find((u) => u.userId === 3)!;
-    expect(u3).toEqual({
-      userId: 3,
-      name: 'User3',
-      deduction: 4,
-      bedDeduction: 1,
-      publicDeduction: 3,
-      dutyCount: 1,
-    });
-
-    // 日历：今天得分 9，无记录的日期为 null
+    // 日历：今天得分 11，无记录日期为 null
     const calendar = await app.request(
       '/api/stats/calendar?month=' + monthKeyOf(today),
       { headers: { cookie: viewerCookie } },
@@ -251,11 +301,11 @@ describe('录入 / 更新 / 历史', () => {
         data: { days: { date: string; score: number | null }[]; months: string[] };
       }
     ).data;
-    expect(calendarData.days.find((d) => d.date === today)?.score).toBe(9);
+    expect(calendarData.days.find((d) => d.date === today)?.score).toBe(11);
     expect(calendarData.days.some((d) => d.score === null)).toBe(true);
     expect(calendarData.months).toContain(monthKeyOf(today));
 
-    // 单日明细：今天有值日生、扣分与上/下午检查项
+    // 单日明细：床位池含命中床位与责任分摊
     const dayDetail = await app.request(
       '/api/stats/day?date=' + today,
       { headers: { cookie: viewerCookie } },
@@ -266,21 +316,18 @@ describe('录入 / 更新 / 历史', () => {
         data: {
           score: number;
           dutyUserName: string;
-          totalDeduction: number;
-          bedChecks: unknown[];
+          bedChecks: { beds: number[]; deduction: number }[];
           publicChecks: unknown[];
           userStatus: unknown[];
         } | null;
       }
     ).data;
-    expect(dayData?.score).toBe(9);
-    expect(dayData?.totalDeduction).toBe(11);
-    expect(dayData?.dutyUserName).toBeTruthy();
-    expect(dayData?.bedChecks.length).toBeGreaterThan(0);
-    expect(dayData?.publicChecks.length).toBeGreaterThan(0);
-    expect(dayData?.userStatus.length).toBe(7);
+    expect(dayData?.score).toBe(11);
+    expect(dayData?.bedChecks).toHaveLength(2);
+    expect(dayData?.bedChecks[1]!.beds).toEqual([1, 2]);
+    expect(dayData?.publicChecks).toHaveLength(3);
+    expect(dayData?.userStatus).toHaveLength(7);
 
-    // 无记录日期返回 null；格式非法返回 400
     const noDay = await app.request(
       '/api/stats/day?date=2099-01-01',
       { headers: { cookie: viewerCookie } },
@@ -307,8 +354,9 @@ describe('录入 / 更新 / 历史', () => {
 
     // 历史记录与日志
     const history = await requestAsAdmin(app, 'GET', '/api/admin/inspections');
-    const historyData = ((await history.json()) as { data: { records: unknown[] } }).data;
-    expect(historyData.records).toHaveLength(1);
+    expect(((await history.json()) as { data: { records: unknown[] } }).data.records).toHaveLength(
+      1,
+    );
     const logs = await requestAsAdmin(app, 'GET', '/api/admin/audit-logs');
     const logsData = (
       (await logs.json()) as { data: { logs: { action: string }[]; total: number } }
@@ -316,11 +364,10 @@ describe('录入 / 更新 / 历史', () => {
     expect(logsData.total).toBe(1);
     expect(logsData.logs[0]!.action).toBe('CREATE');
 
-    // 直接检查底层 store 记录数（一天一条）
-    expect(await store.listInspections()).toHaveLength(1);
+    expect(await store.inspections.list()).toHaveLength(1);
   });
 
-  it('同一天再次提交 → 更新而非新增（1.md 确认 #15）', async () => {
+  it('同一天再次提交 → 更新而非新增', async () => {
     const { app, store } = makeApp();
     const today = todayInShanghai();
     await requestAsAdmin(app, 'POST', '/api/admin/inspections', sampleBody(today));
@@ -328,17 +375,17 @@ describe('录入 / 更新 / 历史', () => {
       ...sampleBody(today),
       talkAm: 0,
     });
-    expect(updateRes.status).toBe(200);
     const updated = (await updateRes.json()) as {
       data: { action: string; record: { totalDeduction: number } };
     };
     expect(updated.data.action).toBe('updated');
-    expect(updated.data.record.totalDeduction).toBe(9);
-    expect(await store.listInspections()).toHaveLength(1);
+    expect(updated.data.record.totalDeduction).toBe(7);
+    expect(await store.inspections.list()).toHaveLength(1);
 
     const logs = await requestAsAdmin(app, 'GET', '/api/admin/audit-logs');
-    const logsData = ((await logs.json()) as { data: { logs: { action: string }[] } }).data;
-    expect(logsData.logs[0]!.action).toBe('UPDATE');
+    expect(
+      ((await logs.json()) as { data: { logs: { action: string }[] } }).data.logs[0]!.action,
+    ).toBe('UPDATE');
   });
 
   it('修改日期冲突 → 409；改为空闲日期成功', async () => {
@@ -370,13 +417,10 @@ describe('录入 / 更新 / 历史', () => {
 
   it('输入校验：未来日期 / 请假值日生 → 400', async () => {
     const { app } = makeApp();
-    const future = await requestAsAdmin(
-      app,
-      'POST',
-      '/api/admin/inspections',
-      sampleBody('2099-01-01'),
-    );
-    expect(future.status).toBe(400);
+    expect(
+      (await requestAsAdmin(app, 'POST', '/api/admin/inspections', sampleBody('2099-01-01')))
+        .status,
+    ).toBe(400);
     const dutyOnLeave = await requestAsAdmin(app, 'POST', '/api/admin/inspections', {
       ...sampleBody('2026-08-10'),
       userStatus: allNormal().map((s) => (s.userId === 3 ? { ...s, status: 'LEAVE' } : s)),
@@ -386,7 +430,7 @@ describe('录入 / 更新 / 历史', () => {
 });
 
 describe('撤回 / 恢复', () => {
-  it('撤回后不参与统计；恢复后重新参与；全程留痕', async () => {
+  it('撤回后不参与统计；恢复后重新参与；全程留痕且幂等', async () => {
     const { app } = makeApp();
     const today = todayInShanghai();
     await requestAsAdmin(app, 'POST', '/api/admin/inspections', sampleBody(today));
@@ -422,9 +466,8 @@ describe('撤回 / 恢复', () => {
     expect(
       ((await overviewAfterRestore.json()) as { data: { today: { score: number } } }).data.today
         .score,
-    ).toBe(9);
+    ).toBe(11);
 
-    // 幂等：重复撤回不重复记日志
     await requestAsAdmin(app, 'POST', `/api/admin/inspections/${id}/revoke`, {});
     const again = await requestAsAdmin(app, 'POST', `/api/admin/inspections/${id}/revoke`, {});
     expect(((await again.json()) as { data: { action: string } }).data.action).toBe('unchanged');
@@ -441,11 +484,14 @@ describe('撤回 / 恢复', () => {
 describe('密码与配置', () => {
   it('修改密码：错误当前密码 401；成功后新密码生效、旧密码失效', async () => {
     const { app } = makeApp();
-    const wrong = await requestAsAdmin(app, 'PUT', '/api/admin/passwords', {
-      currentAdminPassword: 'bad',
-      adminPassword: 'new-pass-123',
-    });
-    expect(wrong.status).toBe(401);
+    expect(
+      (
+        await requestAsAdmin(app, 'PUT', '/api/admin/passwords', {
+          currentAdminPassword: 'bad',
+          adminPassword: 'new-pass-123',
+        })
+      ).status,
+    ).toBe(401);
     const okRes = await requestAsAdmin(app, 'PUT', '/api/admin/passwords', {
       currentAdminPassword: 'admin',
       viewerPassword: 'view-123',
@@ -467,8 +513,9 @@ describe('密码与配置', () => {
     }));
     const okRes = await requestAsAdmin(app, 'PUT', '/api/config/members', { users });
     expect(okRes.status).toBe(200);
-    const config = (await okRes.json()) as { data: { users: { name: string }[] } };
-    expect(config.data.users[0]!.name).toBe('张三');
+    expect(
+      ((await okRes.json()) as { data: { users: { name: string }[] } }).data.users[0]!.name,
+    ).toBe('张三');
 
     const bad = await requestAsAdmin(app, 'PUT', '/api/config/members', {
       users: CONFIG.users.map((u, i) => ({
@@ -483,7 +530,7 @@ describe('密码与配置', () => {
 });
 
 describe('CSRF 防护', () => {
-  it('跨源写请求被拒绝', async () => {
+  it('跨源写请求被拒绝；本机开发豁免', async () => {
     const { app } = makeApp();
     const cookie = cookieOf(await login(app, 'ADMIN', 'admin', 'csrf-ip'));
     const res = await app.request(
@@ -497,7 +544,6 @@ describe('CSRF 防护', () => {
     );
     expect(res.status).toBe(403);
 
-    // 本机开发（localhost）豁免 Origin 校验
     const local = await app.request(
       '/api/admin/inspections',
       {

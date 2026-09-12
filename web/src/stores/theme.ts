@@ -1,4 +1,4 @@
-// 主题（明亮/暗夜）：localStorage 持久化，默认跟随系统 prefers-color-scheme
+// 主题（明亮 / 暗夜）：localStorage 持久化，默认跟随系统 prefers-color-scheme
 import { defineStore } from 'pinia';
 
 export type Theme = 'light' | 'dark';
@@ -12,9 +12,7 @@ function initialTheme(): Theme {
 }
 
 export const useThemeStore = defineStore('theme', {
-  state: () => ({
-    theme: 'light' as Theme,
-  }),
+  state: () => ({ theme: 'light' as Theme }),
   actions: {
     /** 应用启动时调用：读取偏好并应用到 <html data-theme> */
     init(): void {
@@ -28,6 +26,8 @@ export const useThemeStore = defineStore('theme', {
     },
     apply(): void {
       document.documentElement.dataset.theme = this.theme;
+      const meta = document.querySelector('meta[name="theme-color"]');
+      if (meta) meta.setAttribute('content', this.theme === 'dark' ? '#0f1512' : '#f6faf6');
     },
   },
 });

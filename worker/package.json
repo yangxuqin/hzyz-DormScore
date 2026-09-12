@@ -12,6 +12,7 @@
     "db:migrate:remote": "wrangler d1 migrations apply dorm-score-db --remote"
   },
   "dependencies": {
+    "@dorm/contracts": "workspace:*",
     "hono": "^4.13.2"
   },
   "devDependencies": {
